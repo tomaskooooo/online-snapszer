@@ -25,18 +25,12 @@ export function scenario(opts: {
   hands: string[];
   trump: Suit;
   turn?: number;
-  stock?: string;
-  trumpCard?: string;
   dealer?: number;
 }): HandState {
   const h = createBareHand(opts.mode, opts.dealer ?? opts.hands.length - 1);
   h.hands = opts.hands.map(cs);
   h.trumpSuit = opts.trump;
   h.turn = opts.turn ?? h.leader;
-  if (opts.stock) {
-    h.stock = cs(opts.stock);
-    h.trumpCard = h.stock[h.stock.length - 1]!;
-  }
   return h;
 }
 
@@ -58,7 +52,6 @@ export function allCards(h: HandState): Card[] {
   return [
     ...h.hands.flat(),
     ...h.undealt,
-    ...h.stock,
     ...h.trick.map((p) => p.card),
     ...h.won.flat(),
   ];

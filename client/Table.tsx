@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { cardId, cardPoints, currentWinner, rankIndex, sameCard, type Card, type LobbyView, type Move, type Suit } from '../src';
 import { CardBack, CardFace, SuitIcon, cardLabel } from './Card';
-import { FolkBorder, FolkDecor, TableArt } from './Folk';
+import { FolkBorder, FolkDecor, PalinkaSet, PlatePair, Pogacsa, Shelf, TableArt, TulipJug } from './Folk';
 import { Hand, type DragState } from './Hand';
 import { REASON_TEXT, SUIT_NAME, tricksText } from './labels';
 import { formatClock, useCountdown } from './useCountdown';
@@ -119,8 +119,6 @@ export function Table({ view, busy, run, actions, onLeave }: Props) {
   const calledHeld = hand.calledCard ? hand.myHand.some((c) => sameCard(c, hand.calledCard!)) : false;
 
   const claim = legal.find((m) => m.type === 'claim');
-  const swap = legal.find((m) => m.type === 'swapTrump');
-  const cover = legal.find((m) => m.type === 'cover');
   const forfeit = legal.find((m) => m.type === 'forfeit');
   const pairValue = (suit: Suit) => (suit === hand.trumpSuit ? 40 : 20);
 
@@ -171,7 +169,7 @@ export function Table({ view, busy, run, actions, onLeave }: Props) {
       <div className="opp-name">
         {players[seat]!.bot && <span aria-hidden>🤖 </span>}
         {name(seat)}
-        {hand.caller === seat && hand.mode !== '1v1' && <span className="tag">hívó</span>}
+        {hand.caller === seat && <span className="tag">hívó</span>}
         {hand.kontra === seat && <span className="tag kontra">kontra</span>}
       </div>
       <div className="backs" aria-label={`${hand.handSizes[seat]} lap`}>
@@ -186,9 +184,86 @@ export function Table({ view, busy, run, actions, onLeave }: Props) {
 
   const opponents = active.filter((s) => s !== me).map(opponent);
 
+  const playersList = (
+    <ul className="players" aria-label="Játékosok">
+      {players.map((p, i) => {
+        const left = match.out.includes(i);
+        const inHand = active.includes(i);
+        const turn = inHand && hand.turn === i && hand.phase !== 'ended';
+        return (
+          <li key={p.id} className={`pl ${i === me ? 'me' : ''} ${turn ? 'turn' : ''} ${left ? 'left' : ''}`}>
+            <span className="pl-avatar" aria-hidden>
+              {p.bot ? '🤖' : p.name.slice(0, 1).toUpperCase()}
+            </span>
+            <span className="pl-main">
+              <b>{i === me ? `${p.name} (te)` : p.name}</b>
+              <span className="pl-tags">
+                {inHand && hand.caller === i && <span className="tag">hívó</span>}
+                {hand.kontra === i && <span className="tag kontra">kontra</span>}
+                {left && <span className="tag ok">{place(i)}. hely</span>}
+              </span>
+              {inHand && <small>{stats(i)}</small>}
+            </span>
+            <span className="pl-score">
+              <b>{left ? '✓' : match.scores[i]}</b>
+              <small>hátra</small>
+            </span>
+            {turn && clock(i)}
+          </li>
+        );
+      })}
+    </ul>
+  );
+
+  const infoPanel = (
+    <div className="info">
+      <div className="info-adu" aria-label="Adutt">
+        <span className="info-label">Adutt</span>
+        {hand.trumpSuit ? (
+          <>
+            <SuitIcon suit={hand.trumpSuit} size={92} />
+            <b>{SUIT_NAME[hand.trumpSuit]}</b>
+          </>
+        ) : (
+          <span className="info-none">még nincs</span>
+        )}
+      </div>
+      <p className="info-meta">
+        {hand.mode} · {match.handNumber}. leosztás
+      </p>
+      {(decl || hand.kontra !== null) && (
+        <div className="info-flags">
+          {decl && (
+            <span className="chip warn">
+              {name(decl.by)}: {decl.kind === 'snapszer' ? 'Snapszer' : 'Durch'}!
+            </span>
+          )}
+          {hand.kontra !== null && <span className="chip warn">Kontra: {name(hand.kontra)} (dupla pont)</span>}
+        </div>
+      )}
+      {hand.calledCard && (
+        <div className="info-box">
+          <span className="info-label">Hívott lap</span>
+          <CardFace card={hand.calledCard} size="small" />
+        </div>
+      )}
+      {hand.lastTrick && hand.lastTrick.length > 0 && (
+        <div className="info-box">
+          <span className="info-label">{hand.trick.length === 0 ? 'Utolsó ütés' : 'Előző ütés'}</span>
+          <div className="mini-row">
+            {hand.lastTrick.map((p) => (
+              <CardFace key={cardId(p.card)} card={p.card} size="tiny" />
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <div className="table-screen">
       <header className="topbar">
+        <span className="brand">Snapszer <em>online</em></span>
         <div className="scores" aria-label="Hátralévő pontok">
           {players.map((p, i) => {
             const left = match.out.includes(i);
@@ -215,7 +290,16 @@ export function Table({ view, busy, run, actions, onLeave }: Props) {
       </header>
       <FolkBorder />
 
-      <div className="board">
+      <div className="stage">
+      <aside className="side side-left" aria-label="Játékosok">
+        <PlatePair />
+        {playersList}
+        <Shelf>
+          <TulipJug className="shelf-jug" />
+        </Shelf>
+      </aside>
+
+      <div className="board" data-spots={spots}>
         <FolkDecor />
         {opponents}
         <div className="center" style={{ gridArea: 'center' }}>
@@ -231,7 +315,6 @@ export function Table({ view, busy, run, actions, onLeave }: Props) {
               </span>
             )}
             {hand.kontra !== null && <span className="chip warn">Kontra: {name(hand.kontra)} (dupla pont)</span>}
-            {hand.covered !== null && <span className="chip warn">A talont {name(hand.covered)} betakarta</span>}
             {hand.calledCard && (
               <span className="chip called">
                 Hívott lap: <CardFace card={hand.calledCard} size="tiny" />
@@ -264,15 +347,6 @@ export function Table({ view, busy, run, actions, onLeave }: Props) {
             </div>
           )}
         </div>
-        {hand.mode === '1v1' && hand.stockCount > 0 && (
-          <div className="talon" style={iPlay ? { gridArea: 'left' } : { gridArea: 'center', alignSelf: 'end', justifySelf: 'center', flexDirection: 'row' }} aria-label={`Talon, ${hand.stockCount} lap`}>
-            {hand.trumpCard && <CardFace card={hand.trumpCard} size="small" />}
-            <div className="pile">
-              <CardBack size="small" />
-              <b>{hand.stockCount - (hand.trumpCard ? 1 : 0)}</b>
-            </div>
-          </div>
-        )}
       </div>
 
       <section className="dock">
@@ -339,7 +413,7 @@ export function Table({ view, busy, run, actions, onLeave }: Props) {
           </div>
         )}
 
-        {hand.phase === 'play' && (swap || cover || claim || pairSuits.length > 0) && (
+        {hand.phase === 'play' && (claim || pairSuits.length > 0) && (
           <div className="actions">
             {claim && (
               <button
@@ -358,16 +432,6 @@ export function Table({ view, busy, run, actions, onLeave }: Props) {
                 {suit === hand.trumpSuit ? ' (adutt)' : ''}
               </button>
             ))}
-            {swap && (
-              <button className="btn" disabled={busy} onClick={() => send(swap)}>
-                Adutt alsó cseréje
-              </button>
-            )}
-            {cover && (
-              <button className="btn" disabled={busy} onClick={() => send(cover)}>
-                Talon betakarása
-              </button>
-            )}
           </div>
         )}
 
@@ -405,6 +469,15 @@ export function Table({ view, busy, run, actions, onLeave }: Props) {
           />
         )}
       </section>
+
+      <aside className="side side-right" aria-label="Játékinformáció">
+        {infoPanel}
+        <Shelf>
+          <PalinkaSet className="shelf-palinka" />
+          <Pogacsa className="shelf-pogacsa" />
+        </Shelf>
+      </aside>
+      </div>
 
       {pending && (
         <Modal onClose={() => setPending(null)} title={cardLabel(pending)}>

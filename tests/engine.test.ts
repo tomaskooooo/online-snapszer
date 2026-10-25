@@ -17,16 +17,23 @@ import {
 import { c, checkConservation, hasMove, play, playableCodes, scenario } from './helpers';
 
 describe('dealing', () => {
-  it('1v1: 5 cards each, 10 card talon with the trump card at the bottom', () => {
+  it('1v1: 4 cards, the caller names the adutt, then 4 more, and 4 cards stay face down', () => {
     const h = startHand('1v1', 0, mulberry32(1));
-    expect(h.hands.map((x) => x.length)).toEqual([5, 5]);
-    expect(h.stock).toHaveLength(10);
-    expect(h.stock[9]).toEqual(h.trumpCard);
-    expect(h.trumpSuit).toBe(h.trumpCard!.suit);
-    expect(h.leader).toBe(1); // the non-dealer leads
-    expect(h.phase).toBe('declare');
-    expect(h.declareQueue).toEqual([1, 0]);
-    checkConservation(h);
+    expect(h.hands.map((x) => x.length)).toEqual([4, 4]);
+    expect(h.undealt).toHaveLength(12);
+    expect(h.leader).toBe(1); // the non-dealer is the caller and leads
+    expect(h.caller).toBe(1);
+    expect(h.phase).toBe('callTrump');
+    expect(legalMoves(h, 0)).toEqual([]);
+
+    const suit = h.hands[1]![0]!.suit;
+    const after = applyMove(h, { type: 'callTrump', seat: 1, suit });
+    expect(after.trumpSuit).toBe(suit);
+    expect(after.hands.map((x) => x.length)).toEqual([8, 8]);
+    expect(after.undealt).toHaveLength(4);
+    expect(after.sides).toEqual([1, 0]);
+    expect(after.phase).toBe('declare');
+    checkConservation(after);
   });
 
   it('2v1: 4 cards, the caller names the adu from them, then 4 more', () => {
@@ -104,12 +111,18 @@ describe('declarations', () => {
     expect(h.kontra).toBeNull();
   });
 
-  it('1v1 has no kontra step: play starts right after the declarations', () => {
+  it('1v1 works like 2v1: the caller declares, the other player answers kontra or play', () => {
     let h = startHand('1v1', 0, mulberry32(7));
+    h = applyMove(h, { type: 'callTrump', seat: 1, suit: h.hands[1]![0]!.suit });
+    expect(legalMoves(h, 0)).toEqual([]);
+    expect(hasMove(h, 1, { type: 'forfeit', seat: 1 })).toBe(true);
     h = applyMove(h, { type: 'declare', seat: 1, kind: 'none' });
-    h = applyMove(h, { type: 'declare', seat: 0, kind: 'none' });
+    expect(h.phase).toBe('kontra');
+    expect(h.turn).toBe(0);
+    h = applyMove(h, { type: 'kontra', seat: 0, kontra: true });
     expect(h.phase).toBe('play');
-    expect(legalMoves(h, 1).some((m) => m.type === 'forfeit')).toBe(false);
+    expect(h.kontra).toBe(0);
+    expect(h.turn).toBe(1);
   });
 
   it('a kontra by one opponent ends the question and doubles what the hand is worth', () => {
@@ -158,19 +171,9 @@ describe('declarations', () => {
     expect(legalMoves(h, 0).some((m) => m.type === 'forfeit')).toBe(false);
   });
 
-  it('1v1: both players get the chance, the non-dealer first; a declaration closes the window', () => {
-    let h = startHand('1v1', 0, mulberry32(7));
-    expect(legalMoves(h, 0)).toEqual([]);
-    h = applyMove(h, { type: 'declare', seat: 1, kind: 'none' });
-    expect(h.phase).toBe('declare');
-    h = applyMove(h, { type: 'declare', seat: 0, kind: 'snapszer' });
-    expect(h.phase).toBe('play');
-    expect(h.declaration).toEqual({ kind: 'snapszer', side: 0, by: 0 });
-    expect(h.turn).toBe(1);
-  });
 });
 
-describe('strict play (2v1 / 2v2)', () => {
+describe('strict play', () => {
   const base = (hand: string, trick: [number, string][]): HandState => {
     const h = scenario({ mode: '2v1', hands: ['9m', hand, 'Am'], trump: 'tok' });
     h.trick = trick.map(([seat, code]) => ({ seat, card: c(code) }));
@@ -384,78 +387,9 @@ describe('Snapszer and durkó', () => {
   });
 });
 
-describe('1v1 specials', () => {
-  it('draw order: winner first, and the loser takes the face-up adu card last', () => {
-    let h = scenario({
-      mode: '1v1',
-      hands: ['Ap Kp', '9p 9z'],
-      trump: 'tok',
-      stock: 'Tz Uz Kz At',
-      turn: 0,
-    });
-    h = play(h, 0, 'Ap');
-    h = play(h, 1, '9p');
-    expect(h.hands[0]!.map(cardId)).toEqual(['piros-king', 'zold-ten']);
-    expect(h.hands[1]!.map(cardId)).toEqual(['zold-nine', 'zold-under']);
-    expect(h.stock).toHaveLength(2);
-
-    h = play(h, 0, 'Kp');
-    h = play(h, 1, '9z');
-    expect(h.hands[1]!.map(cardId)).toContain('tok-ace');
-    expect(h.stock).toHaveLength(0);
-    expect(h.trumpCard).toBeNull();
-  });
-
-  it('is free play while the talon lasts, strict afterwards', () => {
-    const open = scenario({ mode: '1v1', hands: ['Ap', 'Kp 9z'], trump: 'tok', stock: 'Tz Uz Kz At', turn: 0 });
-    const afterLead = play(open, 0, 'Ap');
-    expect(playableCodes(afterLead, 1)).toEqual(['piros-king', 'zold-nine']);
-
-    const strict = scenario({ mode: '1v1', hands: ['Ap', 'Kp 9z'], trump: 'tok', turn: 0 });
-    expect(playableCodes(play(strict, 0, 'Ap'), 1)).toEqual(['piros-king']);
-  });
-
-  it('the trump Alsó swaps with the face-up card while 3+ cards remain', () => {
-    let h = scenario({ mode: '1v1', hands: ['Ut 9z', '9p 9m'], trump: 'tok', stock: 'Tz Uz Kz At', turn: 0 });
-    expect(hasMove(h, 0, { type: 'swapTrump', seat: 0 })).toBe(true);
-    expect(hasMove(h, 1, { type: 'swapTrump', seat: 1 })).toBe(false);
-    h = applyMove(h, { type: 'swapTrump', seat: 0 });
-    expect(h.hands[0]!.map(cardId)).toContain('tok-ace');
-    expect(h.trumpCard).toEqual(c('Ut'));
-    expect(h.stock[h.stock.length - 1]).toEqual(c('Ut'));
-    expect(h.turn).toBe(0);
-
-    const late = scenario({ mode: '1v1', hands: ['Ut 9z', '9p 9m'], trump: 'tok', stock: 'Kz At', turn: 0 });
-    expect(hasMove(late, 0, { type: 'swapTrump', seat: 0 })).toBe(false);
-
-    const noUnder = scenario({ mode: '1v1', hands: ['Ap 9z', '9p 9m'], trump: 'tok', stock: 'Tz Uz Kz At', turn: 0 });
-    expect(hasMove(noUnder, 0, { type: 'swapTrump', seat: 0 })).toBe(false);
-  });
-
-  it('covering stops drawing and makes play strict', () => {
-    let h = scenario({ mode: '1v1', hands: ['Ap Kp', '9p 9z'], trump: 'tok', stock: 'Tz Uz Kz At', turn: 0 });
-    h = applyMove(h, { type: 'cover', seat: 0 });
-    expect(h.covered).toBe(0);
-    expect(hasMove(h, 0, { type: 'cover', seat: 0 })).toBe(false);
-    h = play(h, 0, 'Ap');
-    expect(playableCodes(h, 1)).toEqual(['piros-nine']);
-    h = play(h, 1, '9p');
-    expect(h.hands.map((x) => x.length)).toEqual([1, 1]);
-    expect(h.stock).toHaveLength(4);
-  });
-
-  it('a coverer who never claims 66 loses, scored by the coverer\'s points', () => {
-    let h = scenario({ mode: '1v1', hands: ['Ap', '9p'], trump: 'tok', stock: 'Tz At', turn: 0 });
-    h.covered = 0;
-    h.tricksWon = [0, 1];
-    h.tricksPlayed = 1;
-    h.points = [0, 5];
-    h = play(play(h, 0, 'Ap'), 1, '9p');
-    expect(h.result).toEqual({ winnerSide: 1, amount: 4, reason: 'coverFailed', kontra: false });
-  });
-
+describe('pairs', () => {
   it('a pair is credited only after its owner wins a trick: 20, or 40 in adu', () => {
-    let h = scenario({ mode: '1v1', hands: ['Kz Fz 9m', '9z Am 9p'], trump: 'tok', stock: 'Tz Uz Kp At', turn: 0 });
+    let h = scenario({ mode: '1v1', hands: ['Kz Fz 9m', '9z Am 9p'], trump: 'tok', turn: 0 });
     h = play(h, 0, 'Kz', true);
     expect(h.pendingMeld[0]).toBe(20);
     expect(h.points[0]).toBe(0);
@@ -464,14 +398,14 @@ describe('1v1 specials', () => {
     expect(h.points[0]).toBe(4 + 20);
     expect(h.pendingMeld[0]).toBe(0);
 
-    let t = scenario({ mode: '1v1', hands: ['Kt Ft 9m', '9t Am 9p'], trump: 'tok', stock: 'Tz Uz Kp At', turn: 0 });
+    let t = scenario({ mode: '1v1', hands: ['Kt Ft 9m', '9t Am 9p'], trump: 'tok', turn: 0 });
     t = play(t, 0, 'Kt', true);
     t = play(t, 1, '9t');
     expect(t.points[0]).toBe(4 + 40);
   });
 
   it('a pair that loses its trick stays pending', () => {
-    let h = scenario({ mode: '1v1', hands: ['Kz Fz 9m', 'Az Am 9p'], trump: 'tok', stock: 'Tz Uz Kp At', turn: 0 });
+    let h = scenario({ mode: '1v1', hands: ['Kz Fz 9m', 'Az Am 9p'], trump: 'tok', turn: 0 });
     h = play(h, 0, 'Kz', true);
     h = play(h, 1, 'Az');
     expect(h.points[0]).toBe(0);
@@ -479,7 +413,7 @@ describe('1v1 specials', () => {
   });
 
   it('with a trick already won the pair counts at once, and "Kész!" can follow', () => {
-    let h = scenario({ mode: '1v1', hands: ['Kz Fz 9m', '9z Am 9p'], trump: 'tok', stock: 'Tz Uz Kp At', turn: 0 });
+    let h = scenario({ mode: '1v1', hands: ['Kz Fz 9m', '9z Am 9p'], trump: 'tok', turn: 0 });
     h.tricksWon = [1, 0];
     h.points = [50, 0];
     h = play(h, 0, 'Kz', true);
@@ -571,7 +505,7 @@ describe('match', () => {
     expect(gone.myHand).toEqual([]);
     expect(gone.legalMoves).toEqual([]);
     expect(gone.activeSeats).toEqual([1, 2]);
-    expect(gone.handSizes).toEqual([0, 5, 5]);
+    expect(gone.handSizes).toEqual([0, 4, 4]);
     expect(gone.mode).toBe('1v1');
 
     const playing = viewFor(next, 1).hand;
@@ -641,15 +575,15 @@ describe('match', () => {
 describe('what players may see', () => {
   const fresh = () => {
     let m = newMatch({ mode: '1v1', startScore: 40, showPoints: false }, mulberry32(11));
-    m = applyMatchMove(m, { type: 'declare', seat: 1, kind: 'none' });
-    return applyMatchMove(m, { type: 'declare', seat: 0, kind: 'none' });
+    m = applyMatchMove(m, { type: 'callTrump', seat: 1, suit: m.hand.hands[1]![0]!.suit });
+    return applyMatchMove(m, { type: 'declare', seat: 1, kind: 'none' });
   };
 
-  it('never contains the other player\'s hand or the talon order', () => {
+  it('never contains the other player\'s hand or the cards nobody was dealt', () => {
     const m = fresh();
     const json = JSON.stringify(viewFor(m, 1));
     for (const card of m.hand.hands[0]!) expect(json).not.toContain(JSON.stringify(card));
-    for (const card of m.hand.stock.slice(0, -1)) expect(json).not.toContain(JSON.stringify(card));
+    for (const card of m.hand.undealt) expect(json).not.toContain(JSON.stringify(card));
     expect(viewFor(m, 1).hand.myHand).toEqual(m.hand.hands[1]);
     expect(viewFor(m, 1).hand.revealed).toBeNull();
   });
@@ -661,13 +595,6 @@ describe('what players may see', () => {
     expect(viewFor(shown, 0).hand.points).toEqual([0, 0]);
     // The player can always look through their own won tricks.
     expect(viewFor(m, 0).hand.myTricks).toEqual([]);
-  });
-
-  it('hides the face-up adu card once the talon is covered', () => {
-    let m = fresh();
-    expect(viewFor(m, 0).hand.trumpCard).not.toBeNull();
-    m = applyMatchMove(m, { type: 'cover', seat: 1 });
-    expect(viewFor(m, 0).hand.trumpCard).toBeNull();
   });
 });
 

@@ -31,10 +31,6 @@ export interface HandView {
   myHand: Card[];
   handSizes: number[];
   trumpSuit: Suit | null;
-  /** Face-up talon card, or null once the talon is gone or covered. */
-  trumpCard: Card | null;
-  stockCount: number;
-  covered: number | null;
   calledCard: Card | null;
   trick: Play[];
   lastTrick: Play[] | null;
@@ -99,9 +95,6 @@ export function viewFor(match: MatchState, seat: number): MatchView {
     myHand: playing ? h.hands[local]! : [],
     handSizes: spread(h.hands.map((x) => x.length), 0),
     trumpSuit: h.trumpSuit,
-    trumpCard: h.covered === null ? h.trumpCard : null,
-    stockCount: h.stock.length,
-    covered: tableSeat(h.covered),
     calledCard: h.calledCard,
     trick: plays(h.trick),
     lastTrick: h.lastTrick ? plays(h.lastTrick) : null,

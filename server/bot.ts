@@ -38,8 +38,6 @@ export function botMove(h: HandState, seat: number, rng: Rng, allowClaim = true)
     case 'kontra':
       return moves.find((m) => m.type === 'kontra' && !m.kontra) ?? moves[0]!;
     default: {
-      const swap = moves.find((m) => m.type === 'swapTrump');
-      if (swap) return swap;
       const melds = moves.filter((m) => m.type === 'play' && m.meld && !m.enough);
       const trumpMeld = melds.find((m) => m.type === 'play' && m.card.suit === h.trumpSuit);
       if (trumpMeld) return trumpMeld;

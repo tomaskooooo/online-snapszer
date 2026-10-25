@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { cardPoints, mulberry32, startHand, type Mode, type ResultReason } from '../src';
 import { checkConservation, playRandomHand } from './helpers';
 
-const TRICKS: Record<Mode, number> = { '1v1': 10, '2v1': 8, '2v2': 6 };
+const TRICKS: Record<Mode, number> = { '1v1': 8, '2v1': 8, '2v2': 6 };
 const AMOUNTS = new Set([2, 4, 6, 12, 22, 32, 4, 8, 24, 44, 64]);
 
 describe.each<Mode>(['1v1', '2v1', '2v2'])('random full games: %s', (mode) => {
@@ -24,13 +24,14 @@ describe.each<Mode>(['1v1', '2v1', '2v2'])('random full games: %s', (mode) => {
       expect([0, 1]).toContain(r.winnerSide);
       reasons.add(r.reason);
 
-      if (r.reason === 'lastTrick' || r.reason === 'allTricks' || r.reason === 'durkoWon' || r.reason === 'coverFailed') {
+      if (r.reason === 'lastTrick' || r.reason === 'allTricks' || r.reason === 'durkoWon') {
         // Played out: every card is in a won pile and the 120 points add up.
-        // A covered talon is never played, so those hands end earlier and short of 120.
-        if (end.covered === null && end.hands.every((h) => h.length === 0)) {
+        // In 1v1 four cards are never dealt, so only the other modes add up to 120.
+        if (end.hands.every((h) => h.length === 0)) {
           expect(end.tricksPlayed).toBe(TRICKS[mode]);
           const total = end.won.flat().reduce((s, card) => s + cardPoints(card), 0);
-          expect(total).toBe(120);
+          if (mode !== '1v1') expect(total).toBe(120);
+          else expect(total).toBeLessThanOrEqual(120);
         }
       }
       if (r.reason === 'snapszerFailed' || r.reason === 'durkoFailed') {
@@ -53,7 +54,6 @@ describe.each<Mode>(['1v1', '2v1', '2v2'])('random full games: %s', (mode) => {
     for (const expected of ['lastTrick', 'claim', 'falseClaim', 'snapszerFailed', 'durkoFailed'] as ResultReason[]) {
       expect(reasons, `no ${expected} seen in ${mode}`).toContain(expected);
     }
-    if (mode === '1v1') expect(reasons).toContain('coverFailed');
-    else expect(reasons).toContain('forfeit');
+    expect(reasons).toContain('forfeit');
   });
 });

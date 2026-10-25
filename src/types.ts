@@ -38,7 +38,6 @@ export type ResultReason =
   | 'falseClaim'
   | 'lastTrick'
   | 'allTricks'
-  | 'coverFailed'
   | 'snapszerWon'
   | 'snapszerFailed'
   | 'durkoWon'
@@ -57,27 +56,22 @@ export interface HandState {
   mode: Mode;
   n: number;
   dealer: number;
-  /** Seat that leads the first trick. In 2v1 and 2v2 this is also the caller. */
+  /** Seat that leads the first trick. This is also the caller. */
   leader: number;
   caller: number;
   phase: Phase;
   hands: Card[][];
-  /** Cards not yet dealt (second round in 2v1 and 2v2). */
+  /** Cards not dealt yet (the second round), and in 1v1 the ones that are never dealt. */
   undealt: Card[];
-  /** 1v1 talon. The last element is the face-up trump card. */
-  stock: Card[];
   trumpSuit: Suit | null;
-  trumpCard: Card | null;
   calledCard: Card | null;
-  /** Seat that covered the talon (1v1), or null. */
-  covered: number | null;
-  /** Seat to side. Side 0 is the caller's side in 2v1 and 2v2. */
+  /** Seat to side. Side 0 is the caller's side. */
   sides: number[];
   declaration: Declaration | null;
   declareQueue: number[];
   /** Seat that answered with a kontra (double points), or null. */
   kontra: number | null;
-  /** Seats that still have to answer "kontra or play" (2v1 and 2v2). */
+  /** Seats that still have to answer "kontra or play". */
   kontraQueue: number[];
   turn: number;
   trick: Play[];
@@ -102,8 +96,6 @@ export type Move =
   | { type: 'forfeit'; seat: number }
   | { type: 'kontra'; seat: number; kontra: boolean }
   | { type: 'play'; seat: number; card: Card; meld?: boolean; enough?: boolean }
-  | { type: 'swapTrump'; seat: number }
-  | { type: 'cover'; seat: number }
   | { type: 'claim'; seat: number };
 
 export interface MatchState {

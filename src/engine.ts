@@ -56,11 +56,8 @@ export function createBareHand(mode: Mode, dealer: number): HandState {
     phase: 'play',
     hands: Array.from({ length: n }, () => []),
     undealt: [],
-    stock: [],
     trumpSuit: null,
-    trumpCard: null,
     calledCard: null,
-    covered: null,
     sides: [],
     declaration: null,
     declareQueue: [],
@@ -84,7 +81,6 @@ export function createBareHand(mode: Mode, dealer: number): HandState {
 }
 
 function computeSides(h: HandState): number[] {
-  if (h.mode === '1v1') return [0, 1];
   const sides = Array.from({ length: h.n }, () => 1);
   sides[h.caller] = 0;
   if (h.mode === '2v2' && h.calledCard) {
@@ -104,27 +100,17 @@ export function startHand(mode: Mode, dealer: number, rng: Rng): HandState {
     for (const s of order) for (let i = 0; i < count; i++) h.hands[s]!.push(deck.shift()!);
   };
 
-  if (mode === '1v1') {
-    deal(3);
-    const trump = deck.shift()!;
-    deal(2);
-    h.trumpCard = trump;
-    h.trumpSuit = trump.suit;
-    h.stock = [...deck, trump];
-    h.phase = 'declare';
-    h.declareQueue = [h.leader, dealer];
-    h.turn = h.leader;
-  } else {
-    deal(mode === '2v1' ? 4 : 3);
-    h.undealt = deck;
-    h.phase = mode === '2v1' ? 'callTrump' : 'callCard';
-    h.turn = h.caller;
-  }
+  // Every mode is dealt in two rounds. In 1v1 and 2v1 the caller names the adutt after the
+  // first four cards; in 2v2 the caller names a card after three. Unused cards stay face down.
+  deal(mode === '2v2' ? 3 : 4);
+  h.undealt = deck;
+  h.phase = mode === '2v2' ? 'callCard' : 'callTrump';
+  h.turn = h.caller;
   return h;
 }
 
 function dealSecondRound(h: HandState): void {
-  const per = h.mode === '2v1' ? 4 : 3;
+  const per = h.mode === '2v2' ? 3 : 4;
   for (const s of seatOrder(h.caller, h.n)) {
     for (let i = 0; i < per; i++) h.hands[s]!.push(h.undealt.shift()!);
   }
@@ -137,9 +123,6 @@ function dealSecondRound(h: HandState): void {
 // ---------------------------------------------------------------------------
 // Trick rules
 // ---------------------------------------------------------------------------
-
-const isStrict = (h: HandState): boolean =>
-  h.mode !== '1v1' || h.covered !== null || h.stock.length === 0;
 
 export function currentWinner(plays: Play[], trump: Suit | null): Play {
   let best = plays[0]!;
@@ -158,7 +141,7 @@ export function currentWinner(plays: Play[], trump: Suit | null): Play {
 /** Cards the seat may play when following a lead. */
 export function followableCards(h: HandState, seat: number): Card[] {
   const hand = h.hands[seat]!;
-  if (h.trick.length === 0 || !isStrict(h)) return hand;
+  if (h.trick.length === 0) return hand;
 
   const led = h.trick[0]!.card.suit;
   const winning = currentWinner(h.trick, h.trumpSuit).card;
@@ -213,8 +196,8 @@ export function legalMoves(h: HandState, seat: number): Move[] {
       { type: 'declare', seat, kind: 'durko' },
       { type: 'declare', seat, kind: 'none' },
     ];
-    // The caller (2v1 and 2v2) may give up before a card is played.
-    if (h.mode !== '1v1') declares.push({ type: 'forfeit', seat });
+    // The caller may give up before a card is played.
+    declares.push({ type: 'forfeit', seat });
     return declares;
   }
 
@@ -252,13 +235,6 @@ export function legalMoves(h: HandState, seat: number): Move[] {
     }
   }
 
-  if (h.mode === '1v1') {
-    if (h.covered === null && h.stock.length > 0) {
-      const hasUnder = hand.some((c) => c.suit === h.trumpSuit && c.rank === 'under');
-      if (hasUnder && h.stock.length >= 3) moves.push({ type: 'swapTrump', seat });
-      moves.push({ type: 'cover', seat });
-    }
-  }
   return moves;
 }
 
@@ -323,11 +299,6 @@ function finishPlayedOut(h: HandState): void {
       return;
     }
   }
-  if (h.covered !== null) {
-    const loser = h.sides[h.covered]!;
-    endHand(h, tableResult(h, 1 - loser, loser, 'coverFailed'));
-    return;
-  }
   const winnerSide = h.sides[h.lastTrickWinner!]!;
   endHand(h, tableResult(h, winnerSide, 1 - winnerSide, 'lastTrick'));
 }
@@ -358,12 +329,6 @@ function resolveTrick(h: HandState): void {
       reason: durko ? 'durkoFailed' : 'snapszerFailed',
     });
     return;
-  }
-
-  if (h.mode === '1v1' && h.covered === null && h.stock.length > 0) {
-    h.hands[winner]!.push(h.stock.shift()!);
-    h.hands[1 - winner]!.push(h.stock.shift()!);
-    if (h.stock.length === 0) h.trumpCard = null;
   }
 
   if (h.hands.every((hand) => hand.length === 0)) {
@@ -403,9 +368,6 @@ export function applyMove(prev: HandState, move: Move): HandState {
       }
       if (h.declareQueue.length > 0) {
         h.turn = h.declareQueue[0]!;
-      } else if (h.mode === '1v1') {
-        h.phase = 'play';
-        h.turn = h.leader;
       } else {
         // Everyone except the caller may now answer with a kontra.
         h.phase = 'kontra';
@@ -432,20 +394,6 @@ export function applyMove(prev: HandState, move: Move): HandState {
       // Everybody else goes down, partner or not.
       h.sides = Array.from({ length: h.n }, (_, s) => (s === h.caller ? 0 : 1));
       endHand(h, { winnerSide: 1, amount: 6, reason: 'forfeit' });
-      break;
-
-    case 'swapTrump': {
-      const hand = h.hands[seat]!;
-      const idx = hand.findIndex((c) => c.suit === h.trumpSuit && c.rank === 'under');
-      const under = hand[idx]!;
-      hand[idx] = h.trumpCard!;
-      h.stock[h.stock.length - 1] = under;
-      h.trumpCard = under;
-      break;
-    }
-
-    case 'cover':
-      h.covered = seat;
       break;
 
     case 'claim':

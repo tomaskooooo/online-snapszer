@@ -163,14 +163,71 @@ export function FolkBorder() {
   );
 }
 
-/** Objects standing around the playing area. They never block clicks. */
+
+
+/** A painted plate ("falitányér") hanging on the wall. */
+export function Plate({ className, accent = '#d9362b' }: { className?: string; accent?: string }) {
+  const dots = Array.from({ length: 12 }, (_, i) => (i * 360) / 12);
+  return (
+    <svg className={className} viewBox="0 0 100 112" aria-hidden>
+      <circle cx="50" cy="5" r="3.2" fill="#8a6a3a" />
+      <path d="M50 6L22 44M50 6L78 44" stroke="#c9a66b" strokeWidth="1.6" fill="none" />
+      <circle cx="50" cy="64" r="45" fill="#f3ead2" stroke="#b9a275" strokeWidth="2" />
+      <circle cx="50" cy="64" r="39" fill="none" stroke="#2f6fb2" strokeWidth="3.2" />
+      {dots.map((a) => (
+        <circle key={a} cx="50" cy="29" r="2.1" fill={accent} transform={`rotate(${a} 50 64)`} />
+      ))}
+      <g transform="translate(50 64)">
+        <path d="M0 18C-13 14-19 4-17-4C-8 0-2 8 0 18ZM0 18C13 14 19 4 17-4C8 0 2 8 0 18Z" fill="#4c9a45" />
+        <path d="M0 22V-2" stroke="#3f8a3b" strokeWidth="2.6" />
+        <path d="M0 -2C-11-5-13-22-7-30C-3-24-1-22 0-22C1-22 3-24 7-30C13-22 11-5 0-2Z" fill={accent} />
+        <path d="M0 -2C-4-10-3-18 0-22C3-18 4-10 0-2Z" fill="#f0634f" opacity=".75" />
+      </g>
+    </svg>
+  );
+}
+
+/** A few pogácsa on a plate. */
+export function Pogacsa({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 110 62" aria-hidden>
+      <ellipse cx="55" cy="50" rx="52" ry="9" fill="#efe3c4" stroke="#b9a275" />
+      {[30, 55, 80].map((x, i) => (
+        <g key={x} transform={`translate(${x} ${i === 1 ? 30 : 34})`}>
+          <ellipse rx="17" ry="14" fill="#d8a24f" />
+          <ellipse cy="-3" rx="13" ry="9" fill="#e8b866" />
+          <path d="M-9-4L9 6M-3-8L11 2M-11 2L3 9M9-4L-9 6" stroke="#a8742c" strokeWidth="1.3" strokeLinecap="round" />
+        </g>
+      ))}
+    </svg>
+  );
+}
+
+/** A plank on the wall; whatever stands on it is bottom-aligned. */
+export function Shelf({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="shelf" aria-hidden>
+      {children}
+    </div>
+  );
+}
+
+/** Two hanging plates for the top of a side panel. */
+export function PlatePair() {
+  return (
+    <div className="plates" aria-hidden>
+      <Plate />
+      <Plate accent="#2f6fb2" />
+    </div>
+  );
+}
+
+/** Paprika strings that hang from the top corners of the playing area. */
 export function FolkDecor() {
   return (
     <div className="folk-decor" aria-hidden>
       <PaprikaString className="folk-paprika left" />
       <PaprikaString className="folk-paprika right" />
-      <TulipJug className="folk-jug" />
-      <PalinkaSet className="folk-palinka" />
     </div>
   );
 }
