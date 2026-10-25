@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { cardId, cardPoints, currentWinner, sameCard, type Card, type LobbyView, type Move, type Suit } from '../src';
+import { cardId, cardPoints, currentWinner, rankIndex, sameCard, type Card, type LobbyView, type Move, type Suit } from '../src';
 import { CardBack, CardFace, SuitIcon, cardLabel } from './Card';
+import { FolkBorder, FolkDecor, TableArt } from './Folk';
+import { Hand, type DragState } from './Hand';
 import { REASON_TEXT, SUIT_NAME, tricksText } from './labels';
 import { formatClock, useCountdown } from './useCountdown';
 
@@ -29,6 +31,10 @@ export function Table({ view, busy, run, actions, onLeave }: Props) {
   const [pairSuit, setPairSuit] = useState<Suit | null>(null);
   const [showTricks, setShowTricks] = useState(false);
   const [showRules, setShowRules] = useState(false);
+  const [enoughOn, setEnoughOn] = useState(false);
+  const [manual, setManual] = useState<string[] | null>(null);
+  const [dragState, setDragState] = useState<DragState>('idle');
+  const [notice, setNotice] = useState('');
   const secondsLeft = useCountdown(view.turnDeadline, view.serverTime);
 
   // A freshly declared 20 or 40 gets a full-screen celebration for everybody at the table.
@@ -45,6 +51,8 @@ export function Table({ view, busy, run, actions, onLeave }: Props) {
     const timer = setTimeout(() => setCelebration(null), 3400);
     return () => clearTimeout(timer);
   }, [meldKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => setManual(null), [match.handNumber]);
 
   const name = (seat: number) => players[seat]?.name ?? '?';
   // Players who already went down to zero watch from the side; the others sit around the table.
@@ -70,17 +78,39 @@ export function Table({ view, busy, run, actions, onLeave }: Props) {
   const legal = hand.legalMoves;
   const plays = legal.filter((m): m is PlayMove => m.type === 'play');
   const playable = new Set(plays.filter((m) => !m.meld).map((m) => cardId(m.card)));
-  const melds = plays.filter((m) => m.meld);
+  const melds = plays.filter((m) => m.meld && !m.enough);
+  const enoughMoves = plays.filter((m) => m.enough);
   const pairSuits = [...new Set(melds.map((m) => m.card.suit))] as Suit[];
   const isMyTurn = hand.phase === 'play' && hand.turn === me;
   const myDecision = hand.turn === me && hand.phase !== 'ended';
   const send = (move: Move) => run(() => actions.move({ ...move, seat: me }));
 
-  const clickCard = (card: Card) => {
+  // A card dropped on the table. Kings and Felsős that can form a pair ask how to play them first.
+  const playCard = (card: Card) => {
     if (!isMyTurn || !playable.has(cardId(card))) return;
     if (melds.some((m) => sameCard(m.card, card))) setPending(card);
     else send({ type: 'play', seat: me, card });
   };
+  const rejectCard = () => {
+    setNotice(isMyTurn ? 'Ezt a lapot most nem játszhatod ki.' : 'Most nem te jössz.');
+    setTimeout(() => setNotice(''), 2500);
+  };
+  const askEnough = (m: Move) => {
+    if (window.confirm('Elég!-et mondasz?\n\nHa a csapatodnak a bemondással sincs meg a 66 pontja, elveszted a leosztást.')) send(m);
+  };
+
+  // Cards are shown in the order the player dragged them into, or sorted (adutt first) by default.
+  const sortedHand = useMemo(() => {
+    const suits: Suit[] = ['tok', 'zold', 'piros', 'makk'];
+    const order = hand.trumpSuit ? [hand.trumpSuit, ...suits.filter((x) => x !== hand.trumpSuit)] : suits;
+    return [...hand.myHand].sort((a, b) => order.indexOf(a.suit) - order.indexOf(b.suit) || rankIndex(b) - rankIndex(a));
+  }, [hand.myHand, hand.trumpSuit]);
+  const shownHand = useMemo(() => {
+    if (!manual) return sortedHand;
+    const byId = new Map(sortedHand.map((c) => [cardId(c), c]));
+    const kept = manual.flatMap((id) => (byId.has(id) ? [byId.get(id)!] : []));
+    return [...kept, ...sortedHand.filter((c) => !manual.includes(cardId(c)))];
+  }, [manual, sortedHand]);
 
   const trickCards = hand.trick.length > 0 ? hand.trick : (hand.lastTrick ?? []);
   const showingLast = hand.trick.length === 0 && trickCards.length > 0;
@@ -113,7 +143,7 @@ export function Table({ view, busy, run, actions, onLeave }: Props) {
     status = hand.turn === me ? `Kontrázol, vagy játszol? (${name(hand.caller)} a hívó)` : `${name(hand.turn)} dönt: kontra vagy játék…`;
   } else if (hand.phase === 'play') {
     if (isMyTurn) {
-      status = plays.length < hand.myHand.length && hand.trick.length > 0 ? 'Te jössz. Csak a kiemelt lapok játszhatók ki.' : 'Te jössz.';
+      status = playable.size < hand.myHand.length && hand.trick.length > 0 ? 'Te jössz. Húzd az asztalra az egyik kiemelt lapot.' : 'Te jössz. Húzd a lapot az asztalra.';
     } else {
       status = `${name(hand.turn)} következik…`;
     }
@@ -183,8 +213,10 @@ export function Table({ view, busy, run, actions, onLeave }: Props) {
           </button>
         </div>
       </header>
+      <FolkBorder />
 
       <div className="board">
+        <FolkDecor />
         {opponents}
         <div className="center" style={{ gridArea: 'center' }}>
           <div className="chips">
@@ -207,18 +239,21 @@ export function Table({ view, busy, run, actions, onLeave }: Props) {
             )}
           </div>
 
-          <div className={`trick ${showingLast ? 'last' : ''}`}>
+          <div className={`table-top drop-${dragState}`} data-dropzone="table">
+            <TableArt />
+            <div className={`trick ${showingLast ? 'last' : ''}`}>
             {trickCards.map((p) => (
               <div key={`${p.seat}-${cardId(p.card)}`} className={`slot pos-${pos(p.seat)} ${showingLast && p.seat === lastWinner ? 'won' : ''}`} style={{ gridArea: pos(p.seat) }}>
                 <CardFace card={p.card} />
                 <small>{p.seat === me ? 'te' : name(p.seat)}</small>
               </div>
             ))}
-            {trickCards.length === 0 && <p className="muted mid">Az asztal üres</p>}
+            {trickCards.length === 0 && <p className="mid table-hint">{isMyTurn ? 'Húzd ide a lapot' : 'Az asztal üres'}</p>}
+            </div>
+            {showingLast && lastWinner !== null && hand.phase !== 'ended' && (
+              <p className="caption">{lastWinner === me ? 'Te viszed' : `${name(lastWinner)} viszi`} az ütést</p>
+            )}
           </div>
-          {showingLast && lastWinner !== null && hand.phase !== 'ended' && (
-            <p className="caption">{lastWinner === me ? 'Te viszed' : `${name(lastWinner)} viszi`} az ütést</p>
-          )}
           {!showingLast && hand.lastTrick && hand.lastTrick.length > 0 && (
             <div className="last-row">
               <small>Előző ütés</small>
@@ -310,10 +345,10 @@ export function Table({ view, busy, run, actions, onLeave }: Props) {
                 className="btn kesz"
                 disabled={busy}
                 onClick={() => {
-                  if (window.confirm('Kész!-t mondasz?\n\nHa a csapatodnak nincs meg a 66 pontja, elveszted a leosztást.')) send(claim);
+                  if (window.confirm('Elég!-et mondasz?\n\nHa a csapatodnak nincs meg a 66 pontja, elveszted a leosztást.')) send(claim);
                 }}
               >
-                Kész!
+                Elég!
               </button>
             )}
             {pairSuits.map((suit) => (
@@ -347,19 +382,27 @@ export function Table({ view, busy, run, actions, onLeave }: Props) {
             <b>{name(me)}</b> · {stats(me)}
           </span>
           {clock(me)}
+          <button className="link" onClick={() => setManual(null)} title="Lapok rendezése: adutt elöl, színek és értékek szerint">
+            Rendezés
+          </button>
           <button className="link" onClick={() => setShowTricks(true)}>
             Ütéseim ({hand.tricksWon[me]})
           </button>
         </div>
         )}
 
-        <div className="hand" role="list" style={{ '--count': hand.myHand.length } as React.CSSProperties}>
-          {hand.myHand.map((card) => (
-            <div role="listitem" key={cardId(card)}>
-              <CardFace card={card} onClick={isMyTurn ? () => clickCard(card) : undefined} dimmed={isMyTurn && !playable.has(cardId(card))} playable={isMyTurn && playable.has(cardId(card))} />
-            </div>
-          ))}
-        </div>
+        {notice && <p className="away">{notice}</p>}
+        {iPlay && (
+          <Hand
+            cards={shownHand}
+            playable={playable}
+            canPlay={isMyTurn}
+            onReorder={setManual}
+            onPlay={playCard}
+            onReject={rejectCard}
+            onDragState={setDragState}
+          />
+        )}
       </section>
 
       {pending && (
@@ -375,6 +418,19 @@ export function Table({ view, busy, run, actions, onLeave }: Props) {
             >
               {pending.suit === hand.trumpSuit ? 40 : 20} bemondása és kijátszás
             </button>
+            {enoughMoves.some((m) => sameCard(m.card, pending)) && (
+              <button
+                className="btn kesz"
+                disabled={busy}
+                onClick={() => {
+                  const m = enoughMoves.find((x) => sameCard(x.card, pending));
+                  setPending(null);
+                  if (m) askEnough(m);
+                }}
+              >
+                {pending.suit === hand.trumpSuit ? 40 : 20} bemondása – Elég!
+              </button>
+            )}
             <button
               className="btn"
               disabled={busy}
@@ -392,6 +448,10 @@ export function Table({ view, busy, run, actions, onLeave }: Props) {
       {pairSuit && (
         <Modal onClose={() => setPairSuit(null)} title={`${pairValue(pairSuit)} bemondása – ${SUIT_NAME[pairSuit]}`}>
           <p>Melyik lapot játszod ki? A másikat megmutatod.</p>
+          <label className="switch">
+            <input type="checkbox" checked={enoughOn} onChange={(e) => setEnoughOn(e.target.checked)} />
+            <span>Elég! – a bemondással meglesz a 66 pont</span>
+          </label>
           <div className="pair-choice">
             {melds
               .filter((m) => m.card.suit === pairSuit)
@@ -400,8 +460,12 @@ export function Table({ view, busy, run, actions, onLeave }: Props) {
                   key={cardId(m.card)}
                   card={m.card}
                   onClick={() => {
-                    send(m);
+                    const chosen = enoughOn ? enoughMoves.find((x) => sameCard(x.card, m.card)) : m;
                     setPairSuit(null);
+                    setEnoughOn(false);
+                    if (!chosen) return;
+                    if (enoughOn) askEnough(chosen);
+                    else send(chosen);
                   }}
                 />
               ))}
@@ -517,7 +581,10 @@ function RulesModal({ onClose }: { onClose: () => void }) {
     <Modal title="Szabályok röviden" onClose={onClose}>
       <ul className="rules">
         <li>
-          <b>Cél:</b> 66 pont összegyűjtése, majd <b>Kész!</b> mondása – vagy ha senki sem mondta, az utolsó ütés megnyerése.
+          <b>Játék:</b> a lapot húzd az asztalra, úgy játszod ki. A kezedben húzással rendezheted a lapokat, a „Rendezés" gomb pedig sorba teszi őket.
+        </li>
+        <li>
+          <b>Cél:</b> 66 pont összegyűjtése, majd <b>Elég!</b> mondása – vagy ha senki sem mondta, az utolsó ütés megnyerése.
         </li>
         <li>
           <b>Lapértékek:</b> Ász 11, Tízes 10, Király 4, Felső 3, Alsó 2, Kilences 0.
@@ -532,7 +599,7 @@ function RulesModal({ onClose }: { onClose: () => void }) {
           <b>20 / 40:</b> Király + Felső együtt a kezedben kihíváskor bemondható: 20 pont, aduttban 40. A pont akkor számít, ha már nyertél ütést.
         </li>
         <li>
-          <b>Kész!</b> csak ütés megnyerése után mondható (1v1-ben bemondás után is). Hibás Kész!-nél elveszted a leosztást.
+          <b>Elég!</b> ütés megnyerése után mondható, vagy közvetlenül egy 20/40 bemondásakor (ha a bemondott pont is kell a 66-hoz). Hibás Elég!-nél elveszted a leosztást.
         </li>
         <li>
           <b>Pontozás:</b> a nyertes oldal ennyivel megy lejjebb: 2 (az ellenfélnek legalább 33 pontja volt), 4 (kevesebb, de volt ütése), 6 (ütés nélkül maradt). Snapszer 12, minden ütés 22, Durch 32.

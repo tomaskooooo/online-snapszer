@@ -552,9 +552,11 @@ button.card.playable:hover {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 10px;
+  justify-content: flex-start;
+  gap: 8px;
   min-width: 0;
+  min-height: 0;
+  height: 100%;
 }
 .chips {
   display: flex;
@@ -822,7 +824,7 @@ button.card.playable:hover {
   }
 }
 
-@media (max-height: 720px) {
+@media (max-width: 899px) and (max-height: 720px) {
   :root {
     --cw: min(58px, 15vw);
     --hand-max: 62px;
@@ -962,15 +964,16 @@ button.card.playable:hover {
 /* ---- wide screens: a bigger table and bigger cards ---------------------- */
 @media (min-width: 900px) {
   :root {
-    --cw: min(clamp(60px, 9.4vh, 124px), 10vw);
-    --hand-max: min(clamp(62px, 11.4vh, 140px), 12vw);
+    --cw: min(clamp(60px, 10.6vh, 140px), 11vw);
+    --hand-max: min(clamp(62px, 14.6vh, 170px), 14vw);
   }
-  .trick {
-    row-gap: calc(var(--cw) * -0.55);
-    min-height: calc(var(--cw) * 2.7);
+  .table-top .trick {
+    row-gap: calc(var(--cw) * -0.68);
+    min-height: calc(var(--cw) * 2.8);
+    width: 80%;
   }
   .slot .card {
-    --w: calc(var(--cw) * 0.8);
+    --w: calc(var(--cw) * 0.85);
   }
   .table-screen {
     max-width: 1500px;
@@ -1018,13 +1021,6 @@ button.card.playable:hover {
     flex-basis: 100%;
   }
 }
-@media (max-height: 720px) {
-  :root {
-    --cw: min(58px, 15vw);
-    --hand-max: 62px;
-  }
-}
-
 /* ---- "húszat / negyvenet hívott!" celebration -------------------------- */
 .meld-fx {
   position: fixed;
@@ -1166,4 +1162,224 @@ button.card.playable:hover {
 .ranking em {
   font-weight: 400;
   color: var(--muted);
+}
+
+/* ---- the table in the middle, dragging, and folk decorations ------------ */
+.board {
+  position: relative;
+}
+.opp,
+.center,
+.talon {
+  position: relative;
+  z-index: 1;
+}
+.table-top {
+  position: relative;
+  flex: 1;
+  width: 100%;
+  min-height: 190px;
+  display: grid;
+  place-items: center;
+}
+.table-art {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  filter: drop-shadow(0 8px 12px rgba(0, 0, 0, 0.45));
+  transition: filter 0.15s;
+}
+.table-top .trick,
+.table-top .caption {
+  position: relative;
+  z-index: 1;
+}
+.table-top .trick {
+  width: 92%;
+  min-height: 0;
+}
+.table-top .caption {
+  position: absolute;
+  bottom: 9%;
+  left: 0;
+  right: 0;
+  text-align: center;
+  z-index: 2;
+  text-shadow: 0 1px 4px #000;
+}
+.table-hint {
+  color: #f3e4b6;
+  font-weight: 700;
+  text-align: center;
+  text-shadow: 0 1px 4px #000;
+}
+.table-top.drop-ready .table-art {
+  filter: drop-shadow(0 0 14px rgba(242, 184, 75, 0.85));
+}
+.table-top.drop-over .table-art {
+  filter: drop-shadow(0 0 24px rgba(120, 235, 140, 0.95)) brightness(1.15);
+}
+.table-top.drop-blocked .table-art {
+  filter: drop-shadow(0 0 20px rgba(255, 100, 90, 0.95));
+}
+.hand-item {
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: grab;
+}
+.hand-item .card,
+.hand-item .card.dimmed {
+  cursor: grab;
+}
+.hand-item.lifted {
+  visibility: hidden;
+}
+.drag-ghost {
+  position: fixed;
+  z-index: 60;
+  pointer-events: none;
+  transform: rotate(-4deg) scale(1.06);
+  filter: drop-shadow(0 14px 14px rgba(0, 0, 0, 0.5));
+}
+.drag-ghost .card {
+  width: 100%;
+  height: 100%;
+}
+.folk-border {
+  display: block;
+  flex: none;
+  width: 100%;
+  height: 18px;
+}
+.folk-decor {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+.folk-paprika {
+  position: absolute;
+  top: -6px;
+  width: clamp(40px, 6vw, 96px);
+  transform-origin: top center;
+  filter: drop-shadow(2px 4px 3px rgba(0, 0, 0, 0.4));
+  animation: sway 6s ease-in-out infinite alternate;
+}
+.folk-paprika.left {
+  left: 10px;
+}
+.folk-paprika.right {
+  right: 10px;
+  transform: scaleX(-1);
+  animation-delay: -3s;
+}
+.folk-jug {
+  position: absolute;
+  left: 14px;
+  bottom: 6px;
+  width: clamp(60px, 8vw, 132px);
+  filter: drop-shadow(2px 4px 4px rgba(0, 0, 0, 0.4));
+}
+.folk-palinka {
+  position: absolute;
+  right: 14px;
+  bottom: 6px;
+  width: clamp(70px, 9.5vw, 156px);
+  filter: drop-shadow(2px 4px 4px rgba(0, 0, 0, 0.4));
+}
+@keyframes sway {
+  from {
+    rotate: -2.5deg;
+  }
+  to {
+    rotate: 2.5deg;
+  }
+}
+@media (max-width: 899px) {
+  .folk-jug,
+  .folk-palinka {
+    display: none;
+  }
+  .folk-paprika {
+    width: 34px;
+    opacity: 0.85;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .folk-paprika {
+    animation: none;
+  }
+}
+
+/* ---- keep the table roomy: chips float over its corner ------------------ */
+.center .chips {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 3;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+}
+.pos-left .backs .card + .card,
+.pos-right .backs .card + .card {
+  margin-top: calc(var(--cw) * -0.62);
+}
+.table-top {
+  min-height: 160px;
+}
+@media (min-width: 900px) {
+  :root {
+    --hand-max: min(clamp(62px, 13.4vh, 160px), 13vw);
+  }
+  .board {
+    padding: 6px 24px;
+    gap: 8px;
+  }
+}
+
+.center .last-row {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  z-index: 3;
+  padding: 4px 8px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.4);
+}
+.center .last-row {
+  top: 0;
+  bottom: auto;
+}
+
+/* Small screens: chips and the previous trick stay in the flow so nothing overlaps. */
+@media (max-width: 899px) {
+  .center .chips,
+  .center .last-row {
+    position: static;
+  }
+  .center .chips {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .me-bar {
+    flex-wrap: wrap;
+    row-gap: 2px;
+  }
+}
+@media (max-width: 899px) {
+  .table-top {
+    min-height: 290px;
+  }
+  .slot .card {
+    --w: calc(var(--cw) * 0.85);
+  }
+  .table-top .trick {
+    width: 98%;
+  }
 }

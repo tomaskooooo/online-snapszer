@@ -101,7 +101,7 @@ export type Move =
   | { type: 'declare'; seat: number; kind: 'snapszer' | 'durko' | 'none' }
   | { type: 'forfeit'; seat: number }
   | { type: 'kontra'; seat: number; kontra: boolean }
-  | { type: 'play'; seat: number; card: Card; meld?: boolean }
+  | { type: 'play'; seat: number; card: Card; meld?: boolean; enough?: boolean }
   | { type: 'swapTrump'; seat: number }
   | { type: 'cover'; seat: number }
   | { type: 'claim'; seat: number };

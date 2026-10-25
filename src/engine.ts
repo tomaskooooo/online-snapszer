@@ -34,7 +34,7 @@ export function moveKey(m: Move): string {
     case 'declare':
       return `declare:${m.seat}:${m.kind}`;
     case 'play':
-      return `play:${m.seat}:${cardId(m.card)}:${m.meld ? 1 : 0}`;
+      return `play:${m.seat}:${cardId(m.card)}:${m.meld ? 1 : 0}${m.enough ? 'e' : ''}`;
     case 'kontra':
       return `kontra:${m.seat}:${m.kontra ? 1 : 0}`;
     default:
@@ -244,8 +244,11 @@ export function legalMoves(h: HandState, seat: number): Move[] {
     const king = hand.find((c) => c.suit === suit && c.rank === 'king');
     const over = hand.find((c) => c.suit === suit && c.rank === 'over');
     if (king && over) {
-      moves.push({ type: 'play', seat, card: king, meld: true });
-      moves.push({ type: 'play', seat, card: over, meld: true });
+      for (const card of [king, over]) {
+        moves.push({ type: 'play', seat, card, meld: true });
+        // "Elég!": declare the pair and claim 66 in the same breath.
+        if (h.declaration?.kind !== 'durko') moves.push({ type: 'play', seat, card, meld: true, enough: true });
+      }
     }
   }
 
@@ -462,6 +465,7 @@ export function applyMove(prev: HandState, move: Move): HandState {
       }
       if (h.trick.length === h.n) resolveTrick(h);
       else h.turn = (seat + 1) % h.n;
+      if (move.enough && h.phase !== 'ended') resolveClaim(h, seat);
       break;
     }
   }

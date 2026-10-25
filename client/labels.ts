@@ -18,9 +18,9 @@ export const MODE_INFO: Record<Mode, { title: string; players: number; blurb: st
 };
 
 export const REASON_TEXT: Record<ResultReason, string> = {
-  claim: 'Kész! – megvolt a 66 pont',
-  falseClaim: 'Hibás Kész! – nem volt meg a 66 pont',
-  lastTrick: 'Senki sem mondott Kész!-t, az utolsó ütés döntött',
+  claim: 'Elég! – megvolt a 66 pont',
+  falseClaim: 'Hibás Elég! – nem volt meg a 66 pont',
+  lastTrick: 'Senki sem mondott Elég!-et, az utolsó ütés döntött',
   allTricks: 'Minden ütést megnyert',
   coverFailed: 'A talont betakarta, de nem érte el a 66 pontot',
   snapszerWon: 'A Snapszer sikerült',

@@ -492,7 +492,7 @@ describe('1v1 specials', () => {
     for (const mode of ['2v1', '2v2'] as const) {
       const hands = mode === '2v1' ? ['Kz Fz 9m', '9m 9p', 'Am Ap'] : ['Kz Fz 9m', '9m 9p', 'Am Ap', 'Um Up'];
       const table = scenario({ mode, hands, trump: 'tok' });
-      expect(legalMoves(table, 0).filter((m) => m.type === 'play' && m.meld)).toHaveLength(2);
+      expect(legalMoves(table, 0).filter((m) => m.type === 'play' && m.meld && !m.enough)).toHaveLength(2);
     }
     const one = scenario({ mode: '1v1', hands: ['Kz 9z', '9m 9p'], trump: 'tok', turn: 0 });
     expect(legalMoves(one, 0).some((m) => m.type === 'play' && m.meld)).toBe(false);
@@ -668,5 +668,42 @@ describe('what players may see', () => {
     expect(viewFor(m, 0).hand.trumpCard).not.toBeNull();
     m = applyMatchMove(m, { type: 'cover', seat: 1 });
     expect(viewFor(m, 0).hand.trumpCard).toBeNull();
+  });
+});
+
+describe('"Elég!" together with a pair', () => {
+  const pairHand = (points: number, tricks: number) => {
+    const h = scenario({ mode: '2v1', hands: ['Kz Fz 9m', '9z Am 9p', 'Um Ap Up'], trump: 'tok' });
+    h.tricksWon = [tricks, 0, 0];
+    h.tricksPlayed = tricks;
+    h.points = [points, 0, 0];
+    return h;
+  };
+  const enough = (h: HandState) => applyMove(h, { type: 'play', seat: 0, card: c('Kz'), meld: true, enough: true });
+
+  it('claims at once, counting the pair: 66 or more wins the hand', () => {
+    const done = enough(pairHand(50, 2));
+    expect(done.phase).toBe('ended');
+    expect(done.result).toEqual({ winnerSide: 0, amount: 6, reason: 'claim', kontra: false });
+  });
+
+  it('with too few points the claim is false and the hand is lost', () => {
+    const done = enough(pairHand(30, 2)); // 30 + 20 = 50
+    expect(done.result).toMatchObject({ winnerSide: 1, reason: 'falseClaim', amount: 2 });
+  });
+
+  it('a pair does not count before its owner has won a trick, so "Elég!" fails then', () => {
+    const done = enough(pairHand(0, 0));
+    expect(done.result).toMatchObject({ winnerSide: 1, reason: 'falseClaim', amount: 6 });
+  });
+
+  it('is offered with every pair card, but not while durkó is declared', () => {
+    const h = pairHand(50, 2);
+    const offered = legalMoves(h, 0).filter((m) => m.type === 'play' && m.enough);
+    expect(offered).toHaveLength(2);
+    h.declaration = { kind: 'durko', side: 0, by: 0 };
+    expect(legalMoves(h, 0).some((m) => m.type === 'play' && m.enough)).toBe(false);
+    // The plain declaration is still allowed.
+    expect(legalMoves(h, 0).some((m) => m.type === 'play' && m.meld && !m.enough)).toBe(true);
   });
 });

@@ -95,15 +95,15 @@ An illegal card is not allowed by the game. The engine only offers legal cards.
 
 ## 8. Reaching 66
 
-Nothing ends automatically. A player must press **"Kész!"** himself, as in real life.
+Nothing ends automatically. A player must press **"Elég!"** himself, as in real life.
 
-- "Kész!" may be pressed only **right after winning a trick** (before leading), or, in 1v1, **right after declaring a pair**. It counts the pooled card points of the claimer's side (including pair points already credited).
+- "Elég!" may be pressed only **right after winning a trick** (before leading), or, in 1v1, **right after declaring a pair**. It counts the pooled card points of the claimer's side (including pair points already credited).
 - **Correct claim (66+):** the claimer's side wins the hand and scores by the table in section 4 (12 if that side had declared Snapszer).
 - **False claim (under 66):** the claimer's side loses; the other side scores by the table, using the claimer side's points and tricks. **[ASSUMED]** If the claimer's side had declared Snapszer, the opponents get 12.
-- A side can reach 66 and not press "Kész!". The hand then goes on. If a side wins **every** trick of the hand without pressing "Kész!", it scores 22 (32 if durkó was declared).
-- While durkó is declared, "Kész!" is not available. The side must win every trick.
-- If the hand is played out and nobody pressed "Kész!" successfully, the winner of the last trick wins the hand (not after a cover, see 6.1).
-- A declared Snapszer or durkó fails **immediately** the moment the other side wins a trick (before a successful "Kész!").
+- A side can reach 66 and not press "Elég!". The hand then goes on. If a side wins **every** trick of the hand without pressing "Elég!", it scores 22 (32 if durkó was declared).
+- While durkó is declared, "Elég!" is not available. The side must win every trick.
+- If the hand is played out and nobody pressed "Elég!" successfully, the winner of the last trick wins the hand (not after a cover, see 6.1).
+- A declared Snapszer or durkó fails **immediately** the moment the other side wins a trick (before a successful "Elég!").
 
 ## 8b. Going out (when a player reaches zero)
 
@@ -114,8 +114,13 @@ Nothing ends automatically. A player must press **"Kész!"** himself, as in real
 - The match is over when only one player is left. Ranking: first out is first, and the player who stayed to the end is last.
 - A rematch starts everybody again from the start score.
 
+## 8c. Elég! with a pair
+
+- Right when declaring a 20/40 a player may add **Elég!**: the pair is declared and 66 is claimed in one step. Only the points already credited count (a pair counts only after its owner has won a trick), so a wrong Elég! loses the hand like any wrong claim.
+- It is not available while durch is declared.
+
 ## 9. Lobby settings (chosen by the host)
 
 - **Mode:** 1v1, 2v1 or 2v2.
 - **Starting score:** 30, 40, 50 or 60.
-- **Show point counts:** on or off. When on, every player sees each seat's current card points (and who has won how many tricks). When off, the game shows only the cards in your own tricks pile and the trick counts, so players have to count the points themselves before pressing "Kész!".
+- **Show point counts:** on or off. When on, every player sees each seat's current card points (and who has won how many tricks). When off, the game shows only the cards in your own tricks pile and the trick counts, so players have to count the points themselves before pressing "Elég!".

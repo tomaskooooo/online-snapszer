@@ -44,7 +44,7 @@ export const cardImage = (card: Card): string => `/cards/${SUIT_FILE[card.suit]}
 
 interface FaceProps {
   card: Card;
-  onClick?: () => void;
+  onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void;
   /** Dim a card that cannot be played right now. */
   dimmed?: boolean;
   playable?: boolean;
@@ -63,7 +63,7 @@ export function CardFace({ card, onClick, dimmed, playable, size = 'normal' }: F
     );
   }
   return (
-    <button type="button" className={cls} onClick={onClick} disabled={dimmed} aria-label={label} title={label}>
+    <button type="button" className={cls} onClick={onClick} aria-disabled={dimmed || undefined} aria-label={label} title={label}>
       {img}
     </button>
   );
