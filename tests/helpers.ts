@@ -103,7 +103,9 @@ export function playRandomHand(
         const kind = roll < chance / 2 ? 'snapszer' : roll < chance ? 'durko' : 'none';
         move = { type: 'declare', seat, kind };
       } else if (h.phase === 'kontra') {
-        move = { type: 'kontra', seat, kontra: rng() < 0.3 };
+        const allowed = moves.filter((m): m is Extract<Move, { type: 'kontra' }> => m.type === 'kontra');
+        const wantKontra = rng() < 0.3;
+        move = allowed.find((m) => m.kontra === wantKontra) ?? allowed[0]!;
       } else if (h.phase === 'callCard' || h.phase === 'callTrump') {
         move = moves[Math.floor(rng() * moves.length)]!;
       } else {

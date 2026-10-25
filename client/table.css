@@ -823,3 +823,44 @@
     --hand-max: 56px;
   }
 }
+
+/* ---- team total and notes in the side panel ----------------------------- */
+.info-team {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 10px;
+  border-radius: 16px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+.info-team b {
+  font-size: 1.8rem;
+  font-variant-numeric: tabular-nums;
+}
+.info-team b small {
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+.info-team.enough {
+  border-color: rgba(46, 160, 67, 0.7);
+  background: rgba(46, 160, 67, 0.2);
+}
+.info-team.enough b {
+  color: #8cf09a;
+}
+.info-note {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: rgba(242, 184, 75, 0.12);
+  border: 1px solid rgba(242, 184, 75, 0.3);
+  font-size: 0.85rem;
+  text-align: center;
+  color: #f3e4b6;
+}
+.pending {
+  font-style: normal;
+  color: var(--accent);
+}

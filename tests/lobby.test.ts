@@ -181,7 +181,7 @@ describe.each<[Mode, number]>([
       expect(hands).toBeLessThan(500);
     }
     const view = await peek(store, host.code, host.token);
-    expect(view.match!.scores.some((s) => s <= 0)).toBe(true);
+    expect(view.match!.out.length).toBeGreaterThan(0);
 
     const again = await rematch(store, auth, mulberry32(7));
     expect(again.view.match!.over).toBe(false);

@@ -42,7 +42,8 @@ export type ResultReason =
   | 'snapszerFailed'
   | 'durkoWon'
   | 'durkoFailed'
-  | 'forfeit';
+  | 'forfeit'
+  | 'decider';
 
 export interface HandResult {
   winnerSide: number;
@@ -69,6 +70,8 @@ export interface HandState {
   sides: number[];
   declaration: Declaration | null;
   declareQueue: number[];
+  /** The no-adutt deciding round that is played when two players are left, or null. */
+  special: 'decider' | null;
   /** Seat that answered with a kontra (double points), or null. */
   kontra: number | null;
   /** Seats that still have to answer "kontra or play". */

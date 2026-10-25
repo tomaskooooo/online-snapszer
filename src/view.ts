@@ -1,4 +1,4 @@
-import { legalMoves } from './engine';
+import { calledCardOut, claimsOpen, legalMoves, sideStats } from './engine';
 import type {
   Card,
   Declaration,
@@ -40,6 +40,14 @@ export interface HandView {
   /** Card points per seat. Null when the host turned point counts off. */
   points: number[] | null;
   declaration: Declaration | null;
+  /** The no-adutt deciding round, or null. */
+  special: 'decider' | null;
+  /** True when "Elég!" may be said (not in the deciding round, and in 2v2 only once the called card is out). */
+  claimsOpen: boolean;
+  /** Card points of my own side, once I can know who is on it. Null when counts are hidden. */
+  teamPoints: number | null;
+  /** Pair points that wait for their owner to win a first trick, per seat. Null when counts are hidden. */
+  pendingPoints: number[] | null;
   /** Seat that called kontra (double points), or null. */
   kontra: number | null;
   lastMeld: { seat: number; suit: Suit; points: number; trick: number } | null;
@@ -102,6 +110,10 @@ export function viewFor(match: MatchState, seat: number): MatchView {
     myTricks: playing ? h.won[local]! : [],
     points: match.settings.showPoints ? spread(h.points, 0) : null,
     declaration: h.declaration ? { ...h.declaration, by: toTable(h.declaration.by) } : null,
+    special: h.special,
+    claimsOpen: claimsOpen(h),
+    teamPoints: match.settings.showPoints && playing && (h.mode !== '2v2' || calledCardOut(h)) ? sideStats(h, h.sides[local]!).points : null,
+    pendingPoints: match.settings.showPoints ? spread(h.pendingMeld, 0) : null,
     kontra: tableSeat(h.kontra),
     lastMeld: h.lastMeld ? { ...h.lastMeld, seat: toTable(h.lastMeld.seat) } : null,
     claimAvailable: playing && h.phase === 'play' && h.claimWindow === local && h.declaration?.kind !== 'durko',

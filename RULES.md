@@ -88,12 +88,13 @@ An illegal card is not allowed by the game. The engine only offers legal cards.
 - Only the caller may declare Snapszer or Durch (in every mode).
 - Snapszer cannot be combined with durkó (Durch). **[ASSUMED]**
 - **Forfeit (Feladom):** in every mode the caller may give up the hand at any time before the first card is played (while choosing the adutt, naming the card, or declaring). Every other player goes down **6**, partner or not.
-- **Kontra:** in every mode, once the caller has declared, the other players answer one after another with **Kontra** or **Játék**. The first Kontra ends the question and **doubles** whatever the hand scores (2 becomes 4, Snapszer 12 becomes 24, and so on). A kontra does not apply to a forfeit. **[ASSUMED]**
+- **Kontra:** in every mode, once the caller has declared, the other players answer one after another with **Kontra** or **Játék**. The caller's own partner (2v2) is asked too, so nobody can tell who it is, but he may only answer **Játék**; he cannot kontra his own side. The first Kontra ends the question and **doubles** whatever the hand scores (2 becomes 4, Snapszer 12 becomes 24, and so on). A kontra does not apply to a forfeit. **[ASSUMED]**
 
 ## 8. Reaching 66
 
 Nothing ends automatically. A player must press **"Elég!"** himself, as in real life.
 
+- In **2v2** nobody may say "Elég!" (neither the button nor the pair option) **until the called card has been played**, because until then nobody knows the teams. The 20/40 pair itself can still be declared.
 - "Elég!" may be pressed only **right after winning a trick** (before leading), or **right after declaring a pair** (that is the "Elég!" option of the pair dialog). It counts the pooled card points of the claimer's side (including pair points already credited).
 - **Correct claim (66+):** the claimer's side wins the hand and scores by the table in section 4 (12 if that side had declared Snapszer).
 - **False claim (under 66):** the claimer's side loses; the other side scores by the table, using the claimer side's points and tricks. **[ASSUMED]** If the claimer's side had declared Snapszer, the opponents get 12.
@@ -109,6 +110,7 @@ Nothing ends automatically. A player must press **"Elég!"** himself, as in real
 - The deal moves on to the next player still at the table. A player who is out can keep watching, and any player can press "Következő leosztás".
 - Several players can go out in the same hand (for example both partners); the lower score goes out first.
 - The match is over when only one player is left. Ranking: first out is first, and the player who stayed to the end is last.
+- **Deciding round:** when a match that began with 3 or 4 players is down to two, and **both have more than 10 points left**, one extra round is played instead of more normal hands: 8 cards each, **no adutt**, no declarations, no pairs, no "Elég!". Whoever takes the **last trick** goes out ahead of the other one (higher place), and the match ends. If either of the two has 10 or less left, normal 1v1 hands continue. **[ASSUMED]** this is not used in a match that began as 1v1.
 - A rematch starts everybody again from the start score.
 
 ## 8c. Elég! with a pair

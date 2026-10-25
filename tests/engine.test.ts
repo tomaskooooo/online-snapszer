@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import {
   applyMatchMove,
   applyMove,
+  calledCardOut,
   cardId,
+  claimsOpen,
   currentWinner,
   legalMoves,
   mulberry32,
@@ -130,11 +132,16 @@ describe('declarations', () => {
     h = applyMove(h, { type: 'callCard', seat: 0, card: c('Az') });
     h = applyMove(h, { type: 'declare', seat: 0, kind: 'none' });
     expect(h.kontraQueue).toEqual([1, 2, 3]);
-    h = applyMove(h, { type: 'kontra', seat: 1, kontra: false });
-    h = applyMove(h, { type: 'kontra', seat: 2, kontra: true });
+    const [first, second, third] = h.kontraQueue as [number, number, number];
+    // Everybody is asked; the caller's own partner (if it is not the caller) may only play.
+    const opponents = h.kontraQueue.filter((s) => h.sides[s] !== h.sides[h.caller]);
+    expect(opponents.length).toBeGreaterThanOrEqual(2);
+    h = applyMove(h, { type: 'kontra', seat: first, kontra: false });
+    const kontraSeat = [second, third].find((s) => h.sides[s] !== h.sides[h.caller])!;
+    if (kontraSeat === third) h = applyMove(h, { type: 'kontra', seat: second, kontra: false });
+    h = applyMove(h, { type: 'kontra', seat: kontraSeat, kontra: true });
     expect(h.phase).toBe('play');
-    expect(h.kontra).toBe(2);
-    expect(legalMoves(h, 3)).not.toContainEqual({ type: 'kontra', seat: 3, kontra: true });
+    expect(h.kontra).toBe(kontraSeat);
 
     // Same table as always, then doubled: opponents under 33 with a trick are worth 4, so 8.
     h.hands = [['9m'], ['9p'], ['9z'], ['Um']].map((codes) => codes.map(c));
@@ -505,8 +512,10 @@ describe('match', () => {
     expect(gone.myHand).toEqual([]);
     expect(gone.legalMoves).toEqual([]);
     expect(gone.activeSeats).toEqual([1, 2]);
-    expect(gone.handSizes).toEqual([0, 4, 4]);
+    // Both left have 40 to go, so they play the deciding round: eight cards each, no adutt.
+    expect(gone.handSizes).toEqual([0, 8, 8]);
     expect(gone.mode).toBe('1v1');
+    expect(gone.special).toBe('decider');
 
     const playing = viewFor(next, 1).hand;
     expect(playing.myHand).toEqual(next.hand.hands[0]);
@@ -632,5 +641,126 @@ describe('"Elég!" together with a pair', () => {
     expect(legalMoves(h, 0).some((m) => m.type === 'play' && m.enough)).toBe(false);
     // The plain declaration is still allowed.
     expect(legalMoves(h, 0).some((m) => m.type === 'play' && m.meld && !m.enough)).toBe(true);
+  });
+});
+
+describe('rules fixed after playtesting', () => {
+  it('2v2: nobody may say Elég! before the called card is out, then everybody may', () => {
+    const h = scenario({ mode: '2v2', hands: ['Kz Fz 9m', '9z Am 9p', 'Um Ap Up', 'Ut Ap 9t'], trump: 'tok' });
+    h.calledCard = c('Az');
+    h.sides = [0, 1, 0, 1];
+    h.tricksWon = [2, 0, 0, 0];
+    h.tricksPlayed = 2;
+    h.points = [70, 0, 0, 0];
+    h.claimWindow = 0;
+    expect(claimsOpen(h)).toBe(false);
+    expect(hasMove(h, 0, { type: 'claim', seat: 0 })).toBe(false);
+    expect(legalMoves(h, 0).some((m) => m.type === 'play' && m.enough)).toBe(false);
+    // The pair itself can still be declared.
+    expect(legalMoves(h, 0).some((m) => m.type === 'play' && m.meld && !m.enough)).toBe(true);
+
+    h.won[1] = [c('Az'), c('9m')]; // the called card has been played
+    expect(claimsOpen(h)).toBe(true);
+    expect(hasMove(h, 0, { type: 'claim', seat: 0 })).toBe(true);
+    expect(legalMoves(h, 0).some((m) => m.type === 'play' && m.enough)).toBe(true);
+  });
+
+  it('the called card in the current trick also reveals the teams', () => {
+    const h = scenario({ mode: '2v2', hands: ['Kz', '9z', 'Um', 'Ut'], trump: 'tok' });
+    h.calledCard = c('Az');
+    h.trick = [{ seat: 3, card: c('Az') }];
+    expect(calledCardOut(h)).toBe(true);
+  });
+
+  it('Elég! is unaffected in the other modes', () => {
+    const h = scenario({ mode: '2v1', hands: ['Kz Fz', '9z 9p', 'Um Ap'], trump: 'tok' });
+    h.claimWindow = 0;
+    expect(claimsOpen(h)).toBe(true);
+    expect(hasMove(h, 0, { type: 'claim', seat: 0 })).toBe(true);
+  });
+
+  it('the caller\'s partner is asked about kontra like everyone, but may only play', () => {
+    let h = startHand('2v2', 3, mulberry32(21));
+    h = applyMove(h, { type: 'callCard', seat: 0, card: c('Az') });
+    h = applyMove(h, { type: 'declare', seat: 0, kind: 'none' });
+    const asked = [...h.kontraQueue];
+    expect(asked).toEqual([1, 2, 3]);
+    const partner = asked.find((s) => h.sides[s] === h.sides[h.caller]);
+    for (const seat of asked) {
+      const moves = legalMoves(h, seat);
+      if (h.kontraQueue[0] !== seat) continue;
+      const canKontra = moves.some((m) => m.type === 'kontra' && m.kontra);
+      expect(canKontra).toBe(seat !== partner);
+      expect(moves.some((m) => m.type === 'kontra' && !m.kontra)).toBe(true);
+      h = applyMove(h, { type: 'kontra', seat, kontra: false });
+    }
+    expect(h.phase).toBe('play');
+  });
+
+  it('a partner cannot force a kontra even by sending the move', () => {
+    const h = startHand('2v2', 3, mulberry32(22));
+    let g = applyMove(h, { type: 'callCard', seat: 0, card: c('At') });
+    g = applyMove(g, { type: 'declare', seat: 0, kind: 'none' });
+    const partner = g.kontraQueue.find((s) => g.sides[s] === g.sides[g.caller]);
+    if (partner === undefined) return; // the caller called a card he holds himself
+    // Move the partner to the front of the queue and try to kontra.
+    g.kontraQueue = [partner];
+    g.turn = partner;
+    expect(() => applyMove(g, { type: 'kontra', seat: partner, kontra: true })).toThrow(/Illegal/);
+  });
+});
+
+describe('the deciding round when two players are left', () => {
+  const afterExit = (scores: number[], mode: '2v1' | '2v2' | '1v1' = '2v1') => {
+    const base = newMatch({ mode, startScore: 40, showPoints: true }, mulberry32(5));
+    const ended = { ...base.hand, phase: 'ended' as const };
+    return { ...base, scores, hand: ended, out: [0], seats: base.seats };
+  };
+
+  it('is dealt when both remaining players have more than 10 to go: 8 cards, no adutt', () => {
+    const next = nextHand(afterExit([0, 11, 40]), mulberry32(1));
+    expect(next.seats).toEqual([1, 2]);
+    expect(next.hand.special).toBe('decider');
+    expect(next.hand.phase).toBe('play');
+    expect(next.hand.trumpSuit).toBeNull();
+    expect(next.hand.hands.map((x) => x.length)).toEqual([8, 8]);
+  });
+
+  it('is not used when one of them has 10 or less left, or in a match that began with two players', () => {
+    expect(nextHand(afterExit([0, 10, 40]), mulberry32(1)).hand.special).toBeNull();
+    expect(nextHand(afterExit([0, 40, 5]), mulberry32(1)).hand.special).toBeNull();
+    const oneVOne = newMatch({ mode: '1v1', startScore: 40, showPoints: true }, mulberry32(5));
+    const again = nextHand({ ...oneVOne, hand: { ...oneVOne.hand, phase: 'ended' } }, mulberry32(2));
+    expect(again.hand.special).toBeNull();
+  });
+
+  it('has no declarations, no pairs, no claims and no trump', () => {
+    const next = nextHand(afterExit([0, 40, 40]), mulberry32(3));
+    const h = next.hand;
+    const caller = h.turn;
+    const moves = legalMoves(h, caller);
+    expect(moves.every((m) => m.type === 'play' && !m.meld)).toBe(true);
+    h.claimWindow = caller;
+    expect(legalMoves(h, caller).some((m) => m.type === 'claim')).toBe(false);
+  });
+
+  it('is won by whoever takes the last trick, and that ends the match with a ranking', () => {
+    const next = nextHand(afterExit([0, 40, 40]), mulberry32(4));
+    let m = next;
+    let guard = 0;
+    while (m.hand.phase !== 'ended' && guard++ < 40) {
+      const local = m.hand.turn;
+      const seat = m.seats[local]!;
+      const move = legalMoves(m.hand, local)[0]!;
+      m = applyMatchMove(m, { ...move, seat });
+    }
+    expect(m.hand.phase).toBe('ended');
+    expect(m.hand.result?.reason).toBe('decider');
+    const winner = m.seats[m.hand.lastTrickWinner!]!;
+    const loser = m.seats.find((s) => s !== winner)!;
+    expect(m.over).toBe(true);
+    expect(m.lastOut).toEqual([winner]);
+    expect(m.ranking).toEqual([0, winner, loser]);
+    expect(m.scores).toEqual([0, 40, 40]); // no points change hands in the deciding round
   });
 });

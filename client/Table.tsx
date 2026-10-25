@@ -111,6 +111,7 @@ export function Table({ view, busy, run, actions, onLeave }: Props) {
 
   const claim = legal.find((m) => m.type === 'claim');
   const forfeit = legal.find((m) => m.type === 'forfeit');
+  const canKontra = legal.some((m) => m.type === 'kontra' && m.kontra);
   const pairValue = (suit: Suit) => (suit === hand.trumpSuit ? 40 : 20);
 
   const askForfeit = () => {
@@ -126,7 +127,12 @@ export function Table({ view, busy, run, actions, onLeave }: Props) {
   } else if (hand.phase === 'declare') {
     status = hand.turn === me ? 'Bemondhatsz Snapszert vagy Durchot, vagy kezdődhet a játék.' : `${name(hand.turn)} dönt a bemondásról…`;
   } else if (hand.phase === 'kontra') {
-    status = hand.turn === me ? `Kontrázol, vagy játszol? (${name(hand.caller)} a hívó)` : `${name(hand.turn)} dönt: kontra vagy játék…`;
+    status =
+      hand.turn === me
+        ? canKontra
+          ? `Kontrázol, vagy játszol? (${name(hand.caller)} a hívó)`
+          : 'A hívó csapatában vagy, ezért nem kontrázhatsz. Nyomd meg a Játék gombot.'
+        : `${name(hand.turn)} dönt: kontra vagy játék…`;
   } else if (hand.phase === 'play') {
     if (isMyTurn) {
       status = playable.size < hand.myHand.length && hand.trick.length > 0 ? 'Te jössz. Húzd az asztalra az egyik kiemelt lapot.' : 'Te jössz. Húzd a lapot az asztalra.';
@@ -216,9 +222,21 @@ export function Table({ view, busy, run, actions, onLeave }: Props) {
             <b>{SUIT_NAME[hand.trumpSuit]}</b>
           </>
         ) : (
-          <span className="info-none">még nincs</span>
+          <span className="info-none">{hand.special ? 'nincs adutt' : 'még nincs'}</span>
         )}
       </div>
+      {hand.special && <p className="info-note">Döntő kör: aki az utolsó ütést viszi, az nyer.</p>}
+      {hand.teamPoints !== null && hand.phase !== 'ended' && (
+        <div className={`info-team ${hand.teamPoints >= 66 ? 'enough' : ''}`}>
+          <span className="info-label">{hand.mode === '1v1' ? 'Pontjaid' : 'A csapatod pontja'}</span>
+          <b>
+            {hand.teamPoints} <small>/ 66</small>
+          </b>
+        </div>
+      )}
+      {hand.mode === '2v2' && !hand.special && !hand.claimsOpen && hand.phase !== 'ended' && (
+        <p className="info-note">Elég!-et csak a hívott lap kijátszása után lehet mondani.</p>
+      )}
       <p className="info-meta">
         {hand.mode} · {match.handNumber}. leosztás
       </p>
@@ -402,9 +420,11 @@ export function Table({ view, busy, run, actions, onLeave }: Props) {
 
         {hand.phase === 'kontra' && hand.turn === me && (
           <div className="actions">
-            <button className="btn kontra" disabled={busy} title="A leosztás dupla pontot ér" onClick={() => send({ type: 'kontra', seat: me, kontra: true })}>
-              Kontra (dupla pont)
-            </button>
+            {canKontra && (
+              <button className="btn kontra" disabled={busy} title="A leosztás dupla pontot ér" onClick={() => send({ type: 'kontra', seat: me, kontra: true })}>
+                Kontra (dupla pont)
+              </button>
+            )}
             <button className="btn primary" disabled={busy} onClick={() => send({ type: 'kontra', seat: me, kontra: false })}>
               Játék
             </button>
@@ -443,6 +463,7 @@ export function Table({ view, busy, run, actions, onLeave }: Props) {
         <div className={`me-bar ${myDecision ? 'turn' : ''}`}>
           <span>
             <b>{name(me)}</b> · {stats(me)}
+            {(hand.pendingPoints?.[me] ?? 0) > 0 && <em className="pending"> (+{hand.pendingPoints![me]} függőben: számít, ha ütést nyersz)</em>}
           </span>
           {clock(me)}
           <button className="link" onClick={() => setManual(null)} title="Lapok rendezése: adutt elöl, színek és értékek szerint">
@@ -520,10 +541,12 @@ export function Table({ view, busy, run, actions, onLeave }: Props) {
       {pairSuit && (
         <Modal onClose={() => setPairSuit(null)} title={`${pairValue(pairSuit)} bemondása – ${SUIT_NAME[pairSuit]}`}>
           <p>Melyik lapot játszod ki? A másikat megmutatod.</p>
-          <label className="switch">
-            <input type="checkbox" checked={enoughOn} onChange={(e) => setEnoughOn(e.target.checked)} />
-            <span>Elég! – a bemondással meglesz a 66 pont</span>
-          </label>
+          {enoughMoves.length > 0 && (
+            <label className="switch">
+              <input type="checkbox" checked={enoughOn} onChange={(e) => setEnoughOn(e.target.checked)} />
+              <span>Elég! – a bemondással meglesz a 66 pont</span>
+            </label>
+          )}
           <div className="pair-choice">
             {melds
               .filter((m) => m.card.suit === pairSuit)
@@ -669,13 +692,13 @@ function RulesModal({ onClose }: { onClose: () => void }) {
           <b>20 / 40:</b> Király + Felső együtt a kezedben kihíváskor bemondható: 20 pont, aduttban 40. A pont akkor számít, ha már nyertél ütést.
         </li>
         <li>
-          <b>Elég!</b> ütés megnyerése után mondható, vagy közvetlenül egy 20/40 bemondásakor (ha a bemondott pont is kell a 66-hoz). Hibás Elég!-nél elveszted a leosztást.
+          <b>Elég!</b> ütés megnyerése után mondható, vagy közvetlenül egy 20/40 bemondásakor (ha a bemondott pont is kell a 66-hoz). 2v2-ben csak azután, hogy a hívott lap kiment. Hibás Elég!-nél elveszted a leosztást.
         </li>
         <li>
           <b>Pontozás:</b> a nyertes oldal ennyivel megy lejjebb: 2 (az ellenfélnek legalább 33 pontja volt), 4 (kevesebb, de volt ütése), 6 (ütés nélkül maradt). Snapszer 12, minden ütés 22, Durch 32.
         </li>
         <li>
-          <b>Kontra:</b> a hívó ellenfelei kontrázhatnak (2v1, 2v2): a leosztás dupla pontot ér.
+          <b>Kontra:</b> a hívó ellenfelei kontrázhatnak: a leosztás dupla pontot ér. A hívó társa nem kontrázhat.
         </li>
         <li>
           <b>Feladás:</b> a hívó játék előtt feladhatja: a többiek 6 ponttal mennek lejjebb.
@@ -684,7 +707,7 @@ function RulesModal({ onClose }: { onClose: () => void }) {
           <b>Idő:</b> minden döntésre 1 perced van. Ha lejár, lép helyetted a gép.
         </li>
         <li>
-          <b>Győzelem:</b> aki először ér nullára.
+          <b>Győzelem:</b> aki először ér nullára; a többiek 1v1-ben, 2v1-ben tovább játszanak. Ha ketten maradnak, és mindkettőnek 10 pontnál több van hátra, egy adutt nélküli kör dönt: aki az utolsó ütést viszi, az végez előrébb.
         </li>
       </ul>
     </Modal>
@@ -727,9 +750,17 @@ function HandEnd({ view, busy, run, actions, onLeave }: Props) {
       <div className="dialog wide">
         <h2 className={`banner ${tone}`}>{title}</h2>
         <p>
-          {REASON_TEXT[result.reason]}. <strong>{list(winnerSeats)}</strong> {winnerSeats.length > 1 ? 'mennek' : winnerSeats[0] === me ? 'mész' : 'megy'} lejjebb{' '}
-          <strong>{result.amount} ponttal</strong>.
-          {result.kontra && <span className="kontra-note"> Kontra volt, ezért dupla pont.</span>}
+          {result.reason === 'decider' ? (
+            <>
+              {REASON_TEXT.decider}. <strong>{list(winnerSeats)}</strong> {winnerSeats[0] === me ? 'vitted' : 'vitte'} az utolsó ütést, ezért {winnerSeats[0] === me ? 'te végeztél' : 'ő végzett'} előrébb.
+            </>
+          ) : (
+            <>
+              {REASON_TEXT[result.reason]}. <strong>{list(winnerSeats)}</strong> {winnerSeats.length > 1 ? 'mennek' : winnerSeats[0] === me ? 'mész' : 'megy'} lejjebb{' '}
+              <strong>{result.amount} ponttal</strong>.
+              {result.kontra && <span className="kontra-note"> Kontra volt, ezért dupla pont.</span>}
+            </>
+          )}
         </p>
 
         {match.lastOut.length > 0 && (
@@ -761,7 +792,7 @@ function HandEnd({ view, busy, run, actions, onLeave }: Props) {
                   </td>
                   {hand.mode === '2v2' && <td>{!played(i) ? '–' : isWinner(i) ? 'nyertesek' : 'vesztesek'}</td>}
                   <td>{played(i) ? (hand.finalPoints?.[i] ?? '–') : '–'}</td>
-                  <td className="delta">{!played(i) ? '–' : isWinner(i) ? `−${result.amount}` : '0'}</td>
+                  <td className="delta">{!played(i) || result.reason === 'decider' ? '–' : isWinner(i) ? `−${result.amount}` : '0'}</td>
                   <td>{left ? <b>✓ {place(i)}. hely</b> : <b>{match.scores[i]}</b>}</td>
                 </tr>
               );

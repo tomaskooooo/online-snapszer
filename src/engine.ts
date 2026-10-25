@@ -61,6 +61,7 @@ export function createBareHand(mode: Mode, dealer: number): HandState {
     sides: [],
     declaration: null,
     declareQueue: [],
+    special: null,
     kontra: null,
     kontraQueue: [],
     turn: leader,
@@ -92,13 +93,24 @@ function computeSides(h: HandState): number[] {
   return sides;
 }
 
-export function startHand(mode: Mode, dealer: number, rng: Rng): HandState {
+export function startHand(mode: Mode, dealer: number, rng: Rng, special = false): HandState {
   const h = createBareHand(mode, dealer);
   const deck = shuffle(makeDeck(mode), rng);
   const order = seatOrder(h.leader, h.n);
   const deal = (count: number) => {
     for (const s of order) for (let i = 0; i < count; i++) h.hands[s]!.push(deck.shift()!);
   };
+
+  // The deciding round: no adutt, no declarations, everybody just plays eight cards.
+  if (special) {
+    deal(8);
+    h.undealt = deck;
+    h.special = 'decider';
+    h.sides = computeSides(h);
+    h.phase = 'play';
+    h.turn = h.leader;
+    return h;
+  }
 
   // Every mode is dealt in two rounds. In 1v1 and 2v1 the caller names the adutt after the
   // first four cards; in 2v2 the caller names a card after three. Unused cards stay face down.
@@ -118,6 +130,18 @@ function dealSecondRound(h: HandState): void {
   h.phase = 'declare';
   h.declareQueue = [h.caller];
   h.turn = h.caller;
+}
+
+/** True once the called card has been played, which reveals the teams in 2v2. */
+export function calledCardOut(h: HandState): boolean {
+  const called = h.calledCard;
+  if (!called) return true;
+  return h.won.some((pile) => pile.some((c) => sameCard(c, called))) || h.trick.some((p) => sameCard(p.card, called));
+}
+
+/** "Elég!" may be said: never in the deciding round, and in 2v2 not before the called card is out. */
+export function claimsOpen(h: HandState): boolean {
+  return !h.special && (h.mode !== '2v2' || calledCardOut(h));
 }
 
 // ---------------------------------------------------------------------------
@@ -203,13 +227,17 @@ export function legalMoves(h: HandState, seat: number): Move[] {
 
   if (h.phase === 'kontra') {
     if (h.kontraQueue[0] !== seat) return [];
+    // The caller's own partner is asked like everybody else (so nobody can tell who it is),
+    // but he may only play.
+    if (h.sides[seat] === h.sides[h.caller]) return [{ type: 'kontra', seat, kontra: false }];
     return [
       { type: 'kontra', seat, kontra: true },
       { type: 'kontra', seat, kontra: false },
     ];
   }
 
-  if (h.claimWindow === seat && h.declaration?.kind !== 'durko') {
+  const mayClaim = claimsOpen(h);
+  if (mayClaim && h.claimWindow === seat && h.declaration?.kind !== 'durko') {
     moves.push({ type: 'claim', seat });
   }
   if (h.turn !== seat) return moves;
@@ -222,15 +250,15 @@ export function legalMoves(h: HandState, seat: number): Move[] {
 
   for (const card of hand) moves.push({ type: 'play', seat, card });
 
-  // A pair (Király + Felső) can be declared on any lead: 20, or 40 in adutt.
-  for (const suit of SUITS) {
+  // A pair (Király + Felső) can be declared on any lead: 20, or 40 in adutt. Not in the deciding round.
+  for (const suit of h.special ? [] : SUITS) {
     const king = hand.find((c) => c.suit === suit && c.rank === 'king');
     const over = hand.find((c) => c.suit === suit && c.rank === 'over');
     if (king && over) {
       for (const card of [king, over]) {
         moves.push({ type: 'play', seat, card, meld: true });
         // "Elég!": declare the pair and claim 66 in the same breath.
-        if (h.declaration?.kind !== 'durko') moves.push({ type: 'play', seat, card, meld: true, enough: true });
+        if (mayClaim && h.declaration?.kind !== 'durko') moves.push({ type: 'play', seat, card, meld: true, enough: true });
       }
     }
   }
@@ -292,6 +320,10 @@ function resolveClaim(h: HandState, seat: number): void {
 }
 
 function finishPlayedOut(h: HandState): void {
+  if (h.special) {
+    endHand(h, { winnerSide: h.sides[h.lastTrickWinner!]!, amount: 0, reason: 'decider' });
+    return;
+  }
   for (const side of [0, 1]) {
     if (h.tricksPlayed > 0 && sideStats(h, side).tricks === h.tricksPlayed) {
       const durko = h.declaration?.kind === 'durko' && h.declaration.side === side;
@@ -454,7 +486,15 @@ export function applyMatchMove(match: MatchState, move: Move): MatchState {
   if (local < 0) throw new Error('That player is no longer in the game');
   const hand = applyMove(match.hand, { ...move, seat: local });
   const next: MatchState = { ...match, hand };
-  if (hand.phase === 'ended' && match.hand.phase !== 'ended') {
+  if (hand.phase === 'ended' && match.hand.phase !== 'ended' && hand.special) {
+    // The player who took the last trick finishes ahead of the other one.
+    const winner = match.seats[hand.lastTrickWinner!]!;
+    const loser = match.seats.find((s) => s !== winner)!;
+    next.lastOut = [winner];
+    next.out = [...match.out, winner];
+    next.over = true;
+    next.ranking = [...next.out, loser];
+  } else if (hand.phase === 'ended' && match.hand.phase !== 'ended') {
     const r = hand.result!;
     next.scores = match.scores.map((score, seat) => {
       const i = match.seats.indexOf(seat);
@@ -481,12 +521,15 @@ export function nextHand(match: MatchState, rng: Rng): MatchState {
   const total = match.scores.length;
   let dealer = (match.dealer + 1) % total;
   while (!seats.includes(dealer)) dealer = (dealer + 1) % total;
+  // Two players left after a bigger game, both with more than 10 points to go: one round
+  // without adutt decides it, instead of grinding down the rest of the points.
+  const decider = match.settings.mode !== '1v1' && seats.length === 2 && seats.every((s) => match.scores[s]! > 10);
   return {
     ...match,
     dealer,
     seats,
     lastOut: [],
     handNumber: match.handNumber + 1,
-    hand: startHand(modeForPlayers(seats.length), seats.indexOf(dealer), rng),
+    hand: startHand(modeForPlayers(seats.length), seats.indexOf(dealer), rng, decider),
   };
 }

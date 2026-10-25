@@ -27,6 +27,7 @@ export const REASON_TEXT: Record<ResultReason, string> = {
   durkoWon: 'A Durch sikerült',
   durkoFailed: 'A Durch nem sikerült',
   forfeit: 'A hívó feladta a leosztást',
+  decider: 'Adutt nélküli döntő kör: az utolsó ütés döntött',
 };
 
 export const tricksText = (n: number) => `${n} ütés`;
