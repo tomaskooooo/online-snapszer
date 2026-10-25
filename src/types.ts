@@ -84,7 +84,7 @@ export interface HandState {
   /** Pair points waiting for their owner to win a first trick. */
   pendingMeld: number[];
   tricksPlayed: number;
-  /** Seat that may press "Kész!" right now. */
+  /** Seat that may press "Elég!" right now. */
   claimWindow: number | null;
   lastTrickWinner: number | null;
   lastTrick: Play[] | null;

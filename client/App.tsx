@@ -7,7 +7,7 @@ import { clearSession, loadSession, type Session } from './session';
 import { Table } from './Table';
 import { useLobby } from './useLobby';
 
-type Screen = { kind: 'home' } | { kind: 'create' } | { kind: 'join'; code: string } | { kind: 'room'; code: string };
+type Screen = { kind: 'home' } | { kind: 'create' } | { kind: 'join'; code: string; lost?: boolean } | { kind: 'room'; code: string };
 
 function screenFromHash(): Screen {
   const code = location.hash.replace(/^#\/?/, '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4);
@@ -39,11 +39,18 @@ export function App() {
     case 'create':
       return <CreateForm onBack={home} onDone={(code) => go(`#/${code}`)} />;
     case 'join':
-      return <JoinForm initialCode={screen.code} onBack={home} onDone={(code) => go(`#/${code}`)} />;
+      return (
+        <JoinForm
+          initialCode={screen.code}
+          notice={screen.lost ? 'Ez a szoba már nem létezik, vagy lejárt. Ha új szobát hoztak létre, írd be az új kódot.' : undefined}
+          onBack={home}
+          onDone={(code) => go(`#/${code}`)}
+        />
+      );
     case 'room': {
       const session = loadSession(screen.code);
       if (!session) return <JoinForm initialCode={screen.code} onBack={home} onDone={(code) => go(`#/${code}`)} />;
-      return <Room key={screen.code} code={screen.code} session={session} onExit={home} onLost={() => setScreen({ kind: 'join', code: screen.code })} />;
+      return <Room key={screen.code} code={screen.code} session={session} onExit={home} onLost={() => setScreen({ kind: 'join', code: screen.code, lost: true })} />;
     }
   }
 }

@@ -18,6 +18,8 @@ export interface ApiRequest {
   method: string;
   action: string;
   query: Record<string, string | undefined>;
+  /** Lower-case header names. The player token of a state request is read from `x-player-token`. */
+  headers?: Record<string, string | undefined>;
   body: unknown;
 }
 export interface ApiResponse {
@@ -31,7 +33,7 @@ export async function handleApi(store: Store, req: ApiRequest): Promise<ApiRespo
   try {
     if (req.action === 'state') {
       if (req.method !== 'GET') throw new HttpError(405, 'Ehhez GET kérés kell');
-      return { status: 200, body: await getState(store, req.query) };
+      return { status: 200, body: await getState(store, { code: req.query.code, v: req.query.v, token: req.headers?.['x-player-token'] }) };
     }
     if (req.method !== 'POST') throw new HttpError(405, 'Ehhez POST kérés kell');
 

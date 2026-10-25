@@ -51,7 +51,6 @@ export interface HandView {
   /** Seat that called kontra (double points), or null. */
   kontra: number | null;
   lastMeld: { seat: number; suit: Suit; points: number; trick: number } | null;
-  claimAvailable: boolean;
   legalMoves: Move[];
   result: HandResult | null;
   /** Final card points per seat, shown once the hand is over even when counts were hidden. */
@@ -116,7 +115,6 @@ export function viewFor(match: MatchState, seat: number): MatchView {
     pendingPoints: match.settings.showPoints ? spread(h.pendingMeld, 0) : null,
     kontra: tableSeat(h.kontra),
     lastMeld: h.lastMeld ? { ...h.lastMeld, seat: toTable(h.lastMeld.seat) } : null,
-    claimAvailable: playing && h.phase === 'play' && h.claimWindow === local && h.declaration?.kind !== 'durko',
     legalMoves: playing ? legalMoves(h, local).map((m) => ({ ...m, seat })) : [],
     result: h.result,
     finalPoints: ended ? spread(h.points, 0) : null,

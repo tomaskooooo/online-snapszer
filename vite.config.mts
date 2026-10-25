@@ -28,7 +28,9 @@ function devApi(): Plugin {
         const action = url.pathname.replace(/^\//, '');
         const query: Record<string, string> = Object.fromEntries(url.searchParams);
         const body = req.method === 'POST' ? await readBody(req) : {};
-        const out = await handleApi(store, { method: req.method ?? 'GET', action, query, body });
+        const headers: Record<string, string | undefined> = {};
+        for (const [key, value] of Object.entries(req.headers)) headers[key] = Array.isArray(value) ? value[0] : value;
+        const out = await handleApi(store, { method: req.method ?? 'GET', action, query, headers, body });
         res.statusCode = out.status;
         res.setHeader('Content-Type', 'application/json');
         res.setHeader('Cache-Control', 'no-store');

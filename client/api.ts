@@ -9,12 +9,12 @@ export class ApiError extends Error {
   }
 }
 
-async function call<T>(path: string, init?: { body?: unknown; method?: string }): Promise<T> {
+async function call<T>(path: string, init?: { body?: unknown; method?: string; headers?: Record<string, string> }): Promise<T> {
   let res: Response;
   try {
     res = await fetch(`/api/lobby/${path}`, {
       method: init?.method ?? (init?.body ? 'POST' : 'GET'),
-      headers: init?.body ? { 'Content-Type': 'application/json' } : undefined,
+      headers: { ...(init?.body ? { 'Content-Type': 'application/json' } : {}), ...init?.headers },
       body: init?.body ? JSON.stringify(init.body) : undefined,
       cache: 'no-store',
     });
@@ -41,7 +41,7 @@ export const api = {
   create: (input: Settings & { name: string }) => post<JoinResponse>('create', input),
   join: (code: string, name: string, token?: string) => post<JoinResponse>('join', { code, name, token }),
   state: (code: string, token: string, v?: number) =>
-    call<StateResponse>(`state?code=${encodeURIComponent(code)}&token=${encodeURIComponent(token)}${v ? `&v=${v}` : ''}`),
+    call<StateResponse>(`state?code=${encodeURIComponent(code)}${v ? `&v=${v}` : ''}`, { headers: { 'X-Player-Token': token } }),
   settings: (a: Auth, settings: Partial<Settings>) => post<ViewResponse>('settings', { ...a, settings }),
   addBot: (a: Auth) => post<ViewResponse>('addBot', a),
   remove: (a: Auth, playerId: string) => post<ViewResponse>('remove', { ...a, playerId }),

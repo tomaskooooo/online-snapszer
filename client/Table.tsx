@@ -24,7 +24,6 @@ export function Table({ view, busy, run, actions, onLeave }: Props) {
   const match = view.match!;
   const hand = match.hand;
   const players = view.players;
-  const n = players.length;
   const me = view.me.seat;
   const [pending, setPending] = useState<Card | null>(null);
   const [pairSuit, setPairSuit] = useState<Suit | null>(null);
@@ -539,7 +538,12 @@ export function Table({ view, busy, run, actions, onLeave }: Props) {
       )}
 
       {pairSuit && (
-        <Modal onClose={() => setPairSuit(null)} title={`${pairValue(pairSuit)} bemondása – ${SUIT_NAME[pairSuit]}`}>
+        <Modal
+          onClose={() => {
+            setPairSuit(null);
+            setEnoughOn(false);
+          }}
+          title={`${pairValue(pairSuit)} bemondása – ${SUIT_NAME[pairSuit]}`}>
           <p>Melyik lapot játszod ki? A másikat megmutatod.</p>
           {enoughMoves.length > 0 && (
             <label className="switch">
@@ -805,7 +809,7 @@ function HandEnd({ view, busy, run, actions, onLeave }: Props) {
             {match.ranking.map((seat, idx) => (
               <li key={seat} className={idx === 0 ? 'first' : idx === match.ranking!.length - 1 ? 'last' : ''}>
                 {seat === me ? 'Te' : players[seat]!.name}
-                {idx === match.ranking!.length - 1 && <em> – ő maradt a végére</em>}
+                {idx === match.ranking!.length - 1 && <em> – {seat === me ? 'te maradtál a végére' : 'ő maradt a végére'}</em>}
               </li>
             ))}
           </ol>

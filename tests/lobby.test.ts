@@ -242,12 +242,15 @@ describe('http layer', () => {
     expect(created.status).toBe(200);
     const { code, token } = created.body as { code: string; token: string };
 
-    const state = await handleApi(store, { method: 'GET', action: 'state', query: { code, token }, body: undefined });
+    const state = await handleApi(store, { method: 'GET', action: 'state', query: { code }, headers: { 'x-player-token': token }, body: undefined });
     expect(state.status).toBe(200);
     expect((await handleApi(store, { method: 'POST', action: 'state', query: {}, body: {} })).status).toBe(405);
     expect((await handleApi(store, { method: 'GET', action: 'create', query: {}, body: {} })).status).toBe(405);
     expect((await handleApi(store, { method: 'POST', action: 'nope', query: {}, body: {} })).status).toBe(404);
-    const bad = await handleApi(store, { method: 'GET', action: 'state', query: { code, token: 'x' }, body: undefined });
+    const bad = await handleApi(store, { method: 'GET', action: 'state', query: { code }, headers: { 'x-player-token': 'x' }, body: undefined });
+    // A token in the URL is not accepted any more, so it can never end up in a log by accident.
+    const inUrl = await handleApi(store, { method: 'GET', action: 'state', query: { code, token }, body: undefined });
+    expect(inUrl.status).toBe(403);
     expect(bad).toEqual({ status: 403, body: { error: 'Nem vagy tagja ennek a szobának' } });
   });
 });
@@ -340,5 +343,21 @@ describe('turn clock', () => {
     h.claimWindow = 0;
     expect(botMove(h, 0, mulberry32(1))?.type).toBe('claim');
     expect(botMove(h, 0, mulberry32(1), false)?.type).toBe('play');
+  });
+});
+
+describe('strangers', () => {
+  it('cannot make the server move for an idle player, even after the clock ran out', async () => {
+    clock.now = () => 5_000_000;
+    const { store, host } = await make('1v1');
+    await addBot(store, { code: host.code, token: host.token });
+    await startGame(store, { code: host.code, token: host.token }, mulberry32(21));
+    const before = await peek(store, host.code, host.token);
+    clock.now = () => 5_000_000 + 120_000;
+    await expect(getState(store, { code: host.code, token: 'nope' })).rejects.toThrow(/Nem vagy tagja/);
+    clock.now = () => 5_000_000;
+    const after = await peek(store, host.code, host.token);
+    expect(after.version).toBe(before.version);
+    clock.now = () => Date.now();
   });
 });

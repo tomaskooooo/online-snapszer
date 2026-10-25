@@ -125,6 +125,10 @@ function applyTimeout(lobby: Lobby, rng: Rng): boolean {
 export function enforceTimeout(store: Store, code: string, rng: Rng = secureRng): Promise<void> {
   return store.withLock(code, async () => {
     const lobby = await store.get(code);
+    if (lobby) {
+      lobby.timeouts ??= [];
+      lobby.deadline ??= null;
+    }
     if (!lobby || !applyTimeout(lobby, rng)) return;
     await save(store, lobby);
   });
@@ -231,6 +235,7 @@ export async function getState(
 ): Promise<{ unchanged: true } | { view: LobbyView }> {
   const code = normalizeCode(input.code);
   let lobby = await load(store, code);
+  authenticate(lobby, input.token); // strangers must not be able to make the server do any work
   if (lobby.deadline !== null && clock.now() >= lobby.deadline) {
     await enforceTimeout(store, code);
     lobby = await load(store, code);

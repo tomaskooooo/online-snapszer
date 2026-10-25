@@ -101,7 +101,7 @@ export function CreateForm({ onBack, onDone }: { onBack: () => void; onDone: (co
   );
 }
 
-export function JoinForm({ initialCode, onBack, onDone }: { initialCode: string; onBack: () => void; onDone: (code: string) => void }) {
+export function JoinForm({ initialCode, notice, onBack, onDone }: { initialCode: string; notice?: string; onBack: () => void; onDone: (code: string) => void }) {
   const [code, setCode] = useState(initialCode);
   const [name, setName] = useState(lastName());
   const [busy, setBusy] = useState(false);
@@ -125,6 +125,7 @@ export function JoinForm({ initialCode, onBack, onDone }: { initialCode: string;
     <main className="page">
       <form className="panel" onSubmit={submit}>
         <h2>Csatlakozás kóddal</h2>
+        {notice && <p className="error">{notice}</p>}
         <label className="field">
           <span>A szoba kódja</span>
           <input

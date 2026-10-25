@@ -56,7 +56,11 @@ export function Hand({ cards, playable, canPlay, onReorder, onPlay, onReject, on
   const down = (e: React.PointerEvent<HTMLElement>, card: Card) => {
     if (e.button !== 0 && e.pointerType === 'mouse') return;
     const rect = e.currentTarget.getBoundingClientRect();
-    e.currentTarget.setPointerCapture(e.pointerId);
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {
+      // Some browsers refuse capture for a pointer that is already gone; dragging still works without it.
+    }
     active.current = {
       id: cardId(card),
       card,
