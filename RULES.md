@@ -105,6 +105,15 @@ Nothing ends automatically. A player must press **"Kész!"** himself, as in real
 - If the hand is played out and nobody pressed "Kész!" successfully, the winner of the last trick wins the hand (not after a cover, see 6.1).
 - A declared Snapszer or durkó fails **immediately** the moment the other side wins a trick (before a successful "Kész!").
 
+## 8b. Going out (when a player reaches zero)
+
+- A player whose score reaches **0 or below** has **gone out** and is safe. The match does **not** end then.
+- The players still in the game carry on and play out the remaining points with one player fewer, using the smaller mode: 4 players play 2v2, 3 players play 2v1, 2 players play 1v1. Scores stay as they are.
+- The deal moves on to the next player still at the table. A player who is out can keep watching, and any player can press "Következő leosztás".
+- Several players can go out in the same hand (for example both partners); the lower score goes out first.
+- The match is over when only one player is left. Ranking: first out is first, and the player who stayed to the end is last.
+- A rematch starts everybody again from the start score.
+
 ## 9. Lobby settings (chosen by the host)
 
 - **Mode:** 1v1, 2v1 or 2v2.

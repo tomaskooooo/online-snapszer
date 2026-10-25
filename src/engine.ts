@@ -472,6 +472,9 @@ export function applyMove(prev: HandState, move: Move): HandState {
 // Match
 // ---------------------------------------------------------------------------
 
+/** The game mode for a number of players still at the table. */
+export const modeForPlayers = (count: number): Mode => (count <= 2 ? '1v1' : count === 3 ? '2v1' : '2v2');
+
 export function newMatch(settings: Settings, rng: Rng, firstDealer = 0): MatchState {
   const n = playerCount(settings.mode);
   return {
@@ -480,31 +483,58 @@ export function newMatch(settings: Settings, rng: Rng, firstDealer = 0): MatchSt
     dealer: firstDealer,
     handNumber: 1,
     hand: startHand(settings.mode, firstDealer, rng),
-    winners: null,
+    seats: Array.from({ length: n }, (_, i) => i),
+    out: [],
+    lastOut: [],
+    over: false,
+    ranking: null,
   };
 }
 
+/**
+ * Applies a move made by a table seat. When a hand ends, the winners go down; anybody
+ * who reaches zero leaves, and the rest play on with fewer players (4 -> 3 -> 2).
+ * The match is over when only one player is left, and that player comes last.
+ */
 export function applyMatchMove(match: MatchState, move: Move): MatchState {
-  if (match.winners) throw new Error('Match is over');
-  const hand = applyMove(match.hand, move);
+  if (match.over) throw new Error('Match is over');
+  const local = match.seats.indexOf(move.seat);
+  if (local < 0) throw new Error('That player is no longer in the game');
+  const hand = applyMove(match.hand, { ...move, seat: local });
   const next: MatchState = { ...match, hand };
   if (hand.phase === 'ended' && match.hand.phase !== 'ended') {
     const r = hand.result!;
-    next.scores = match.scores.map((score, seat) => (hand.sides[seat] === r.winnerSide ? score - r.amount : score));
-    const winners = next.scores.flatMap((s, seat) => (s <= 0 ? [seat] : []));
-    next.winners = winners.length > 0 ? winners : null;
+    next.scores = match.scores.map((score, seat) => {
+      const i = match.seats.indexOf(seat);
+      return i >= 0 && hand.sides[i] === r.winnerSide ? score - r.amount : score;
+    });
+    // Whoever is at zero or below leaves; the lowest score leaves first.
+    const leaving = match.seats.filter((seat) => next.scores[seat]! <= 0).sort((a, b) => next.scores[a]! - next.scores[b]!);
+    next.lastOut = leaving;
+    next.out = [...match.out, ...leaving];
+    const staying = match.seats.filter((seat) => !leaving.includes(seat));
+    if (staying.length <= 1) {
+      next.over = true;
+      next.ranking = [...next.out, ...staying];
+    }
   }
   return next;
 }
 
 export function nextHand(match: MatchState, rng: Rng): MatchState {
-  if (match.winners) throw new Error('Match is over');
+  if (match.over) throw new Error('Match is over');
   if (match.hand.phase !== 'ended') throw new Error('Hand is still running');
-  const dealer = (match.dealer + 1) % match.hand.n;
+  const seats = match.seats.filter((seat) => !match.out.includes(seat));
+  // The deal moves to the next player still at the table.
+  const total = match.scores.length;
+  let dealer = (match.dealer + 1) % total;
+  while (!seats.includes(dealer)) dealer = (dealer + 1) % total;
   return {
     ...match,
     dealer,
+    seats,
+    lastOut: [],
     handNumber: match.handNumber + 1,
-    hand: startHand(match.settings.mode, dealer, rng),
+    hand: startHand(modeForPlayers(seats.length), seats.indexOf(dealer), rng),
   };
 }

@@ -110,9 +110,19 @@ export interface MatchState {
   settings: Settings;
   /** Remaining score per seat, counting down. */
   scores: number[];
+  /** Table seat of the dealer. */
   dealer: number;
   handNumber: number;
+  /** The running hand. Its seat numbers are positions in `seats`, not table seats. */
   hand: HandState;
-  /** Seats that reached 0 or below. Null while the match runs. */
-  winners: number[] | null;
+  /** Table seats still playing this hand, in table order. The hand's seat i is table seat seats[i]. */
+  seats: number[];
+  /** Table seats that have gone down to zero, in the order they left. */
+  out: number[];
+  /** Seats that left at the end of the most recent hand. */
+  lastOut: number[];
+  /** True once only one player is left. */
+  over: boolean;
+  /** Best to worst, filled in when the match is over. */
+  ranking: number[] | null;
 }

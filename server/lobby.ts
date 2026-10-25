@@ -95,8 +95,8 @@ async function save(store: Store, lobby: Lobby): Promise<void> {
 export function armTimer(lobby: Lobby): void {
   const match = lobby.match;
   lobby.deadline = null;
-  if (!match || match.winners || match.hand.phase === 'ended') return;
-  const seat = match.hand.turn;
+  if (!match || match.over || match.hand.phase === 'ended') return;
+  const seat = match.seats[match.hand.turn]!;
   const player = lobby.players[seat];
   if (!player || player.bot) return;
   const away = (lobby.timeouts[seat] ?? 0) >= AWAY_AFTER;
@@ -110,11 +110,12 @@ export function armTimer(lobby: Lobby): void {
 function applyTimeout(lobby: Lobby, rng: Rng): boolean {
   if (!lobby.match || lobby.deadline === null || clock.now() < lobby.deadline) return false;
   const hand = lobby.match.hand;
-  if (hand.phase === 'ended' || lobby.match.winners) return false;
-  const seat = hand.turn;
-  const move = botMove(hand, seat, rng, false) ?? legalMoves(hand, seat).find((m) => m.type !== 'claim');
+  if (hand.phase === 'ended' || lobby.match.over) return false;
+  const local = hand.turn;
+  const seat = lobby.match.seats[local]!;
+  const move = botMove(hand, local, rng, false) ?? legalMoves(hand, local).find((m) => m.type !== 'claim');
   if (!move) return false;
-  lobby.match = applyMatchMove(lobby.match, move);
+  lobby.match = applyMatchMove(lobby.match, { ...move, seat });
   lobby.timeouts[seat] = (lobby.timeouts[seat] ?? 0) + 1;
   runBots(lobby, rng);
   armTimer(lobby);
@@ -134,13 +135,15 @@ export function runBots(lobby: Lobby, rng: Rng = secureRng): void {
   if (!lobby.match) return;
   for (let steps = 0; steps < 300; steps++) {
     const hand = lobby.match.hand;
-    if (hand.phase === 'ended' || lobby.match.winners) return;
+    if (hand.phase === 'ended' || lobby.match.over) return;
     let moved = false;
-    for (let seat = 0; seat < lobby.players.length && !moved; seat++) {
+    // The hand's seats are positions in `seats`; the player list is indexed by table seat.
+    for (let local = 0; local < hand.n && !moved; local++) {
+      const seat = lobby.match.seats[local]!;
       if (!lobby.players[seat]!.bot) continue;
-      const move = botMove(hand, seat, rng);
+      const move = botMove(hand, local, rng);
       if (!move) continue;
-      lobby.match = applyMatchMove(lobby.match, move);
+      lobby.match = applyMatchMove(lobby.match, { ...move, seat });
       moved = true;
     }
     if (!moved) return;
@@ -330,7 +333,7 @@ export const startNextHand = (
     if (!match) throw new HttpError(409, 'A játék még nem kezdődött el');
     // Several players may press the button at once: only the first press counts.
     if (match.handNumber !== Number(input.handNumber)) return;
-    if (match.winners) throw new HttpError(409, 'A mérkőzés véget ért');
+    if (match.over) throw new HttpError(409, 'A mérkőzés véget ért');
     if (match.hand.phase !== 'ended') throw new HttpError(409, 'A leosztás még tart');
     lobby.match = nextHand(match, rng);
     runBots(lobby, rng);
@@ -340,7 +343,7 @@ export const startNextHand = (
 export const rematch = (store: Store, input: { code?: unknown; token?: unknown }, rng: Rng = secureRng) =>
   mutate(store, input, (lobby, player) => {
     requireHost(lobby, player);
-    if (!lobby.match?.winners) throw new HttpError(409, 'A mérkőzés még nem ért véget');
+    if (!lobby.match?.over) throw new HttpError(409, 'A mérkőzés még nem ért véget');
     const needed = playerCount(lobby.settings.mode);
     lobby.match = newMatch(lobby.settings, rng, Math.floor(rng() * needed));
     lobby.timeouts = [];

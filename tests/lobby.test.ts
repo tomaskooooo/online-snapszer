@@ -176,15 +176,15 @@ describe.each<[Mode, number]>([
       const view = await playHandAsHuman(store, host.code, host.token);
       hands++;
       expect(view.match!.hand.result).toBeTruthy();
-      if (view.match!.winners) break;
+      if (view.match!.over) break;
       await startNextHand(store, { ...auth, handNumber: view.match!.handNumber }, mulberry32(hands));
-      expect(hands).toBeLessThan(80);
+      expect(hands).toBeLessThan(500);
     }
     const view = await peek(store, host.code, host.token);
     expect(view.match!.scores.some((s) => s <= 0)).toBe(true);
 
     const again = await rematch(store, auth, mulberry32(7));
-    expect(again.view.match!.winners).toBeNull();
+    expect(again.view.match!.over).toBe(false);
     expect(again.view.match!.scores.every((s) => s === 30)).toBe(true);
   });
 });
@@ -215,7 +215,7 @@ describe('moves', () => {
     await startGame(store, auth, mulberry32(5));
     const ended = await playHandAsHuman(store, host.code, host.token);
     const n = ended.match!.handNumber;
-    if (ended.match!.winners) return;
+    if (ended.match!.over) return;
     await startNextHand(store, { ...auth, handNumber: n }, mulberry32(1));
     await startNextHand(store, { ...auth, handNumber: n }, mulberry32(2));
     expect((await peek(store, host.code, host.token)).match!.handNumber).toBe(n + 1);

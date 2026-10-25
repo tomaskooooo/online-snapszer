@@ -47,13 +47,18 @@ export function Table({ view, busy, run, actions, onLeave }: Props) {
   }, [meldKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const name = (seat: number) => players[seat]?.name ?? '?';
+  // Players who already went down to zero watch from the side; the others sit around the table.
+  const active = hand.activeSeats;
+  const iPlay = active.includes(me);
+  const spots = iPlay ? active.length : active.length + 1;
   const pos = (seat: number): Pos => {
-    const r = (seat - me + n) % n;
+    const r = iPlay ? (active.indexOf(seat) - active.indexOf(me) + active.length) % active.length : active.indexOf(seat) + 1;
     if (r === 0) return 'bottom';
-    if (n === 2) return 'top';
-    if (n === 3) return r === 1 ? 'left' : 'right';
+    if (spots === 2) return 'top';
+    if (spots === 3) return r === 1 ? 'left' : 'right';
     return r === 1 ? 'left' : r === 2 ? 'top' : 'right';
   };
+  const place = (seat: number) => match.out.indexOf(seat) + 1;
 
   const clock = (seat: number) =>
     hand.turn === seat && hand.phase !== 'ended' && secondsLeft !== null ? (
@@ -136,7 +141,7 @@ export function Table({ view, busy, run, actions, onLeave }: Props) {
       <div className="opp-name">
         {players[seat]!.bot && <span aria-hidden>🤖 </span>}
         {name(seat)}
-        {hand.caller === seat && n > 2 && <span className="tag">hívó</span>}
+        {hand.caller === seat && hand.mode !== '1v1' && <span className="tag">hívó</span>}
         {hand.kontra === seat && <span className="tag kontra">kontra</span>}
       </div>
       <div className="backs" aria-label={`${hand.handSizes[seat]} lap`}>
@@ -149,24 +154,26 @@ export function Table({ view, busy, run, actions, onLeave }: Props) {
     </div>
   );
 
-  const opponents = Array.from({ length: n }, (_, s) => s)
-    .filter((s) => s !== me)
-    .map(opponent);
+  const opponents = active.filter((s) => s !== me).map(opponent);
 
   return (
     <div className="table-screen">
       <header className="topbar">
         <div className="scores" aria-label="Hátralévő pontok">
-          {players.map((p, i) => (
-            <span key={p.id} className={`score ${i === me ? 'me' : ''} ${match.scores[i]! === Math.min(...match.scores) ? 'lead' : ''}`}>
-              <small>{i === me ? `${p.name} (te)` : p.name}</small>
-              <b>{match.scores[i]}</b>
-            </span>
-          ))}
+          {players.map((p, i) => {
+            const left = match.out.includes(i);
+            return (
+              <span key={p.id} className={`score ${i === me ? 'me' : ''} ${left ? 'left' : ''}`}>
+                <small>{i === me ? `${p.name} (te)` : p.name}</small>
+                <b>{left ? '✓' : match.scores[i]}</b>
+                {left && <em>{place(i)}. hely</em>}
+              </span>
+            );
+          })}
         </div>
         <div className="meta">
           <span>
-            {view.settings.mode} · {match.handNumber}. leosztás
+            {hand.mode} · {match.handNumber}. leosztás
           </span>
           <button className="link" onClick={() => setShowRules(true)}>
             Szabályok
@@ -221,8 +228,8 @@ export function Table({ view, busy, run, actions, onLeave }: Props) {
             </div>
           )}
         </div>
-        {view.settings.mode === '1v1' && hand.stockCount > 0 && (
-          <div className="talon" style={{ gridArea: 'left' }} aria-label={`Talon, ${hand.stockCount} lap`}>
+        {hand.mode === '1v1' && hand.stockCount > 0 && (
+          <div className="talon" style={iPlay ? { gridArea: 'left' } : { gridArea: 'center', alignSelf: 'end', justifySelf: 'center', flexDirection: 'row' }} aria-label={`Talon, ${hand.stockCount} lap`}>
             {hand.trumpCard && <CardFace card={hand.trumpCard} size="small" />}
             <div className="pile">
               <CardBack size="small" />
@@ -328,7 +335,13 @@ export function Table({ view, busy, run, actions, onLeave }: Props) {
           </div>
         )}
 
+        {!iPlay && (
+          <p className="role">
+            Már kimentél a játékból ({place(me)}. hely). Nézheted, ahogy a többiek játszanak tovább.
+          </p>
+        )}
         {view.me.missed >= 2 && <p className="away">Kétszer lejárt az időd, ezért gyorsan lépünk helyetted. Lépj egyet, hogy átvedd a játékot.</p>}
+        {iPlay && (
         <div className={`me-bar ${myDecision ? 'turn' : ''}`}>
           <span>
             <b>{name(me)}</b> · {stats(me)}
@@ -338,6 +351,7 @@ export function Table({ view, busy, run, actions, onLeave }: Props) {
             Ütéseim ({hand.tricksWon[me]})
           </button>
         </div>
+        )}
 
         <div className="hand" role="list" style={{ '--count': hand.myHand.length } as React.CSSProperties}>
           {hand.myHand.map((card) => (
@@ -547,57 +561,87 @@ function HandEnd({ view, busy, run, actions, onLeave }: Props) {
   const revealed = hand.revealed!;
   const players = view.players;
   const me = view.me.seat;
-  const isWinner = (seat: number) => revealed.sides[seat] === result.winnerSide;
-  const winnerSeats = revealed.sides.flatMap((_, seat) => (isWinner(seat) ? [seat] : []));
+  const played = (seat: number) => hand.activeSeats.includes(seat);
+  const isWinner = (seat: number) => played(seat) && revealed.sides[seat] === result.winnerSide;
+  const winnerSeats = players.flatMap((_, seat) => (isWinner(seat) ? [seat] : []));
+  const iPlayed = played(me);
   const iWon = isWinner(me);
   const list = (seats: number[]) => seats.map((s) => (s === me ? 'Te' : players[s]!.name)).join(' és ');
-  const matchOver = match.winners !== null;
-  const matchWon = matchOver && match.winners!.includes(me);
+  const place = (seat: number) => (match.ranking ?? match.out).indexOf(seat) + 1;
+  const matchOver = match.over;
+  const champion = match.ranking?.[0];
+  const matchWon = matchOver && champion === me;
+  const remaining = hand.activeSeats.length - match.lastOut.length;
+  const nextMode = remaining === 2 ? 'egy az egy ellen' : remaining === 3 ? '3 játékossal (2v1)' : '4 játékossal (2v2)';
 
   const title = matchOver
     ? matchWon
       ? 'Megnyerted a mérkőzést! 🎉'
-      : `${list(match.winners!)} nyerte a mérkőzést`
-    : iWon
-      ? 'Megnyerted a leosztást!'
-      : 'Elvesztetted a leosztást';
+      : `${list([champion!])} nyerte a mérkőzést`
+    : !iPlayed
+      ? 'A leosztás véget ért'
+      : iWon
+        ? 'Megnyerted a leosztást!'
+        : 'Elvesztetted a leosztást';
+  const tone = matchOver ? (matchWon ? 'win' : 'lose') : !iPlayed ? 'neutral' : iWon ? 'win' : 'lose';
 
   return (
     <div className="overlay" role="dialog" aria-modal="true" aria-label="A leosztás véget ért">
       <div className="dialog wide">
-        <h2 className={`banner ${(matchOver ? matchWon : iWon) ? 'win' : 'lose'}`}>{title}</h2>
+        <h2 className={`banner ${tone}`}>{title}</h2>
         <p>
           {REASON_TEXT[result.reason]}. <strong>{list(winnerSeats)}</strong> {winnerSeats.length > 1 ? 'mennek' : winnerSeats[0] === me ? 'mész' : 'megy'} lejjebb{' '}
           <strong>{result.amount} ponttal</strong>.
           {result.kontra && <span className="kontra-note"> Kontra volt, ezért dupla pont.</span>}
         </p>
 
+        {match.lastOut.length > 0 && (
+          <p className="exit-note">
+            🏁 <strong>{list(match.lastOut)}</strong> {match.lastOut.length > 1 ? 'kimentek' : match.lastOut[0] === me ? 'kimentél' : 'kiment'} (
+            {match.lastOut.map((s) => `${place(s)}.`).join(', ')} hely).
+            {!matchOver && ` A többiek ${nextMode} játsszák le a maradék pontokat.`}
+          </p>
+        )}
+
         <table className="result-table">
           <thead>
             <tr>
               <th>Játékos</th>
-              {view.settings.mode === '2v2' && <th>Oldal</th>}
+              {hand.mode === '2v2' && <th>Oldal</th>}
               <th>Kártyapont</th>
               <th>Változás</th>
               <th>Hátra</th>
             </tr>
           </thead>
           <tbody>
-            {players.map((p, i) => (
-              <tr key={p.id} className={isWinner(i) ? 'won' : 'lost'}>
-                <td>
-                  <span className="result-badge">{isWinner(i) ? 'NYERT' : 'VESZTETT'}</span> {i === me ? `${p.name} (te)` : p.name}
-                </td>
-                {view.settings.mode === '2v2' && <td>{isWinner(i) ? 'nyertesek' : 'vesztesek'}</td>}
-                <td>{hand.finalPoints?.[i] ?? '–'}</td>
-                <td className="delta">{isWinner(i) ? `−${result.amount}` : '0'}</td>
-                <td>
-                  <b>{match.scores[i]}</b>
-                </td>
-              </tr>
-            ))}
+            {players.map((p, i) => {
+              const left = match.out.includes(i);
+              const cls = !played(i) ? 'idle' : isWinner(i) ? 'won' : 'lost';
+              return (
+                <tr key={p.id} className={cls}>
+                  <td>
+                    <span className="result-badge">{!played(i) ? 'KINT' : isWinner(i) ? 'NYERT' : 'VESZTETT'}</span> {i === me ? `${p.name} (te)` : p.name}
+                  </td>
+                  {hand.mode === '2v2' && <td>{!played(i) ? '–' : isWinner(i) ? 'nyertesek' : 'vesztesek'}</td>}
+                  <td>{played(i) ? (hand.finalPoints?.[i] ?? '–') : '–'}</td>
+                  <td className="delta">{!played(i) ? '–' : isWinner(i) ? `−${result.amount}` : '0'}</td>
+                  <td>{left ? <b>✓ {place(i)}. hely</b> : <b>{match.scores[i]}</b>}</td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
+
+        {matchOver && match.ranking && (
+          <ol className="ranking" aria-label="Végeredmény">
+            {match.ranking.map((seat, idx) => (
+              <li key={seat} className={idx === 0 ? 'first' : idx === match.ranking!.length - 1 ? 'last' : ''}>
+                {seat === me ? 'Te' : players[seat]!.name}
+                {idx === match.ranking!.length - 1 && <em> – ő maradt a végére</em>}
+              </li>
+            ))}
+          </ol>
+        )}
 
         <div className="row">
           <button className="btn" onClick={onLeave}>

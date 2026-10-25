@@ -512,13 +512,18 @@ describe('1v1 specials', () => {
 });
 
 describe('match', () => {
-  const matchWith = (hand: HandState, scores: number[]): MatchState => ({
+  const matchWith = (hand: HandState, scores: number[], extra: Partial<MatchState> = {}): MatchState => ({
     settings: { mode: hand.mode, startScore: 40, showPoints: true },
     scores,
     dealer: hand.dealer,
     handNumber: 1,
     hand,
-    winners: null,
+    seats: scores.map((_, i) => i),
+    out: [],
+    lastOut: [],
+    over: false,
+    ranking: null,
+    ...extra,
   });
 
   it('subtracts the amount from each member of the winning side', () => {
@@ -530,19 +535,93 @@ describe('match', () => {
     h.claimWindow = 2;
     const m = applyMatchMove(matchWith(h, [40, 40, 40, 40]), { type: 'claim', seat: 2 });
     expect(m.scores).toEqual([34, 40, 34, 40]);
-    expect(m.winners).toBeNull();
+    expect(m.over).toBe(false);
+    expect(m.out).toEqual([]);
   });
 
-  it('ends when a score reaches zero and then refuses more moves', () => {
+  const threePlayerExit = () => {
     const h = scenario({ mode: '2v1', hands: ['9m 9p', '9z 9t', 'Um Uz'], trump: 'tok' });
     h.points = [70, 0, 0];
     h.tricksWon = [3, 0, 0];
     h.tricksPlayed = 3;
     h.claimWindow = 0;
-    const m = applyMatchMove(matchWith(h, [6, 40, 40]), { type: 'claim', seat: 0 });
+    return applyMatchMove(matchWith(h, [6, 40, 40]), { type: 'claim', seat: 0 });
+  };
+
+  it('a player who reaches zero leaves, and the other two carry on one against one', () => {
+    const m = threePlayerExit();
     expect(m.scores[0]).toBe(0);
-    expect(m.winners).toEqual([0]);
-    expect(() => nextHand(m, mulberry32(1))).toThrow();
+    expect(m.out).toEqual([0]);
+    expect(m.lastOut).toEqual([0]);
+    expect(m.over).toBe(false);
+
+    const next = nextHand(m, mulberry32(3));
+    expect(next.seats).toEqual([1, 2]);
+    expect(next.hand.mode).toBe('1v1');
+    expect(next.hand.n).toBe(2);
+    expect(next.scores).toEqual([0, 40, 40]);
+    expect(next.dealer).toBe(1); // the deal skips the player who left
+    expect(next.lastOut).toEqual([]);
+    expect(() => applyMatchMove(next, { type: 'declare', seat: 0, kind: 'none' })).toThrow(/no longer/);
+  });
+
+  it('shows a player who left the table without their cards, using table seats everywhere', () => {
+    const next = nextHand(threePlayerExit(), mulberry32(3));
+    const gone = viewFor(next, 0).hand;
+    expect(gone.myHand).toEqual([]);
+    expect(gone.legalMoves).toEqual([]);
+    expect(gone.activeSeats).toEqual([1, 2]);
+    expect(gone.handSizes).toEqual([0, 5, 5]);
+    expect(gone.mode).toBe('1v1');
+
+    const playing = viewFor(next, 1).hand;
+    expect(playing.myHand).toEqual(next.hand.hands[0]);
+    expect(playing.mySeat).toBe(1);
+    expect(playing.turn === 1 || playing.turn === 2).toBe(true);
+    for (const move of playing.legalMoves) expect(move.seat).toBe(1);
+  });
+
+  it('the match ends when one player is left, and the ranking runs from first out to last', () => {
+    const h = scenario({ mode: '1v1', hands: ['9m 9p', '9z 9t'], trump: 'tok' });
+    h.points = [70, 0];
+    h.tricksWon = [3, 0];
+    h.tricksPlayed = 3;
+    h.claimWindow = 0;
+    const m = matchWith(h, [-2, 4, 10], { seats: [1, 2], out: [0], dealer: 0 });
+    const end = applyMatchMove(m, { type: 'claim', seat: 1 }); // seat 1 wins 6, so 4 - 6 < 0
+    expect(end.out).toEqual([0, 1]);
+    expect(end.over).toBe(true);
+    expect(end.ranking).toEqual([0, 1, 2]);
+    expect(() => nextHand(end, mulberry32(1))).toThrow();
+    expect(() => applyMatchMove(end, { type: 'declare', seat: 2, kind: 'none' })).toThrow();
+  });
+
+  it('two partners who finish together leave together, the lower score first', () => {
+    const h = scenario({ mode: '2v2', hands: ['9m 9p', '9z 9t', 'Um Uz', 'Up Ut'], trump: 'tok' });
+    h.sides = [0, 0, 1, 1];
+    h.points = [40, 30, 0, 0];
+    h.tricksWon = [2, 2, 0, 0];
+    h.tricksPlayed = 4;
+    h.claimWindow = 0;
+    const m = applyMatchMove(matchWith(h, [5, 3, 40, 40]), { type: 'claim', seat: 0 });
+    expect(m.scores).toEqual([-1, -3, 40, 40]);
+    expect(m.out).toEqual([1, 0]);
+    expect(m.over).toBe(false);
+    expect(nextHand(m, mulberry32(2)).hand.mode).toBe('1v1');
+  });
+
+  it('a four player table shrinks to three when one player leaves', () => {
+    const h = scenario({ mode: '2v2', hands: ['9m', '9p', '9z', 'Um'], trump: 'tok' });
+    h.sides = [0, 1, 1, 1];
+    h.points = [70, 0, 0, 0];
+    h.tricksWon = [3, 0, 0, 0];
+    h.tricksPlayed = 3;
+    h.claimWindow = 0;
+    const m = applyMatchMove(matchWith(h, [4, 40, 40, 40]), { type: 'claim', seat: 0 });
+    expect(m.out).toEqual([0]);
+    const next = nextHand(m, mulberry32(4));
+    expect(next.hand.mode).toBe('2v1');
+    expect(next.seats).toEqual([1, 2, 3]);
   });
 
   it('deals the next hand with the dealer moved on', () => {

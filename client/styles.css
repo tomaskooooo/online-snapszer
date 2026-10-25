@@ -1118,3 +1118,52 @@ button.card.playable:hover {
     animation: none;
   }
 }
+
+/* ---- players who left the game, and the final ranking ------------------- */
+.score.left {
+  opacity: 0.8;
+  background: rgba(46, 160, 67, 0.18);
+  border-color: rgba(46, 160, 67, 0.55);
+}
+.score.left b {
+  color: #8cf09a;
+}
+.score em {
+  font-style: normal;
+  font-size: 0.7rem;
+  color: #8cf09a;
+}
+.banner.neutral {
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--line);
+}
+.result-table tr.idle td {
+  color: var(--muted);
+}
+.result-table tr.idle .result-badge {
+  background: #4a5a50;
+}
+.exit-note {
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: rgba(46, 160, 67, 0.16);
+  border: 1px solid rgba(46, 160, 67, 0.5);
+}
+.ranking {
+  margin: 0;
+  padding-left: 22px;
+  display: grid;
+  gap: 4px;
+  font-weight: 700;
+}
+.ranking li.first {
+  color: #8cf09a;
+}
+.ranking li.last {
+  color: #ffa7a1;
+}
+.ranking em {
+  font-weight: 400;
+  color: var(--muted);
+}
