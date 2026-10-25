@@ -1,12 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { cardId, cardPoints, currentWinner, rankIndex, sameCard, type Card, type LobbyView, type Move, type Suit } from '../src';
 import { CardBack, CardFace, SuitIcon, cardLabel } from './Card';
-import { FolkBorder, FolkDecor, PalinkaSet, PlatePair, Pogacsa, Shelf, TableArt, TulipJug } from './Folk';
+import { FolkBorder, PalinkaSet, PlatePair, Pogacsa, Shelf, TulipJug } from './Folk';
 import { Hand, type DragState } from './Hand';
 import { REASON_TEXT, SUIT_NAME, tricksText } from './labels';
 import { formatClock, useCountdown } from './useCountdown';
 
-type Pos = 'bottom' | 'left' | 'top' | 'right';
 type PlayMove = Extract<Move, { type: 'play' }>;
 
 interface Props {
@@ -58,14 +57,6 @@ export function Table({ view, busy, run, actions, onLeave }: Props) {
   // Players who already went down to zero watch from the side; the others sit around the table.
   const active = hand.activeSeats;
   const iPlay = active.includes(me);
-  const spots = iPlay ? active.length : active.length + 1;
-  const pos = (seat: number): Pos => {
-    const r = iPlay ? (active.indexOf(seat) - active.indexOf(me) + active.length) % active.length : active.indexOf(seat) + 1;
-    if (r === 0) return 'bottom';
-    if (spots === 2) return 'top';
-    if (spots === 3) return r === 1 ? 'left' : 'right';
-    return r === 1 ? 'left' : r === 2 ? 'top' : 'right';
-  };
   const place = (seat: number) => match.out.indexOf(seat) + 1;
 
   const clock = (seat: number) =>
@@ -165,7 +156,7 @@ export function Table({ view, busy, run, actions, onLeave }: Props) {
   };
 
   const opponent = (seat: number) => (
-    <div key={seat} className={`opp pos-${pos(seat)} ${hand.turn === seat && hand.phase !== 'ended' ? 'turn' : ''}`} style={{ gridArea: pos(seat) }}>
+    <div key={seat} className={`opp ${hand.turn === seat && hand.phase !== 'ended' ? 'turn' : ''}`}>
       <div className="opp-name">
         {players[seat]!.bot && <span aria-hidden>🤖 </span>}
         {name(seat)}
@@ -182,7 +173,10 @@ export function Table({ view, busy, run, actions, onLeave }: Props) {
     </div>
   );
 
-  const opponents = active.filter((s) => s !== me).map(opponent);
+  // The other players in the order they sit after me.
+  const myIndex = active.indexOf(me);
+  const around = iPlay ? [...active.slice(myIndex + 1), ...active.slice(0, myIndex)] : active;
+  const opponents = around.map(opponent);
 
   const playersList = (
     <ul className="players" aria-label="Játékosok">
@@ -299,54 +293,52 @@ export function Table({ view, busy, run, actions, onLeave }: Props) {
         </Shelf>
       </aside>
 
-      <div className="board" data-spots={spots}>
-        <FolkDecor />
-        {opponents}
-        <div className="center" style={{ gridArea: 'center' }}>
-          <div className="chips">
-            {hand.trumpSuit && (
-              <span className={`chip adu s-${hand.trumpSuit}`}>
-                Adutt: <SuitIcon suit={hand.trumpSuit} size={38} /> <b>{SUIT_NAME[hand.trumpSuit]}</b>
-              </span>
-            )}
-            {decl && (
-              <span className="chip warn">
-                {name(decl.by)}: {decl.kind === 'snapszer' ? 'Snapszer' : 'Durch'}!
-              </span>
-            )}
-            {hand.kontra !== null && <span className="chip warn">Kontra: {name(hand.kontra)} (dupla pont)</span>}
-            {hand.calledCard && (
-              <span className="chip called">
-                Hívott lap: <CardFace card={hand.calledCard} size="tiny" />
-              </span>
-            )}
-          </div>
+      <div className="board">
+        <div className="opps">{opponents}</div>
 
-          <div className={`table-top drop-${dragState}`} data-dropzone="table">
-            <TableArt />
-            {hand.trumpSuit && <SuitIcon suit={hand.trumpSuit} size="46%" className="table-adu" />}
-            <div className={`trick ${showingLast ? 'last' : ''}`}>
+        <div className="chips">
+          {hand.trumpSuit && (
+            <span className={`chip adu s-${hand.trumpSuit}`}>
+              Adutt: <SuitIcon suit={hand.trumpSuit} size={34} /> <b>{SUIT_NAME[hand.trumpSuit]}</b>
+            </span>
+          )}
+          {decl && (
+            <span className="chip warn">
+              {name(decl.by)}: {decl.kind === 'snapszer' ? 'Snapszer' : 'Durch'}!
+            </span>
+          )}
+          {hand.kontra !== null && <span className="chip warn">Kontra: {name(hand.kontra)} (dupla pont)</span>}
+          {hand.calledCard && (
+            <span className="chip called">
+              Hívott lap: <CardFace card={hand.calledCard} size="tiny" />
+            </span>
+          )}
+        </div>
+
+        <div className={`table-top drop-${dragState}`} data-dropzone="table">
+          {hand.trumpSuit && <SuitIcon suit={hand.trumpSuit} size="46%" className="table-adu" />}
+          <div className={`trick ${showingLast ? 'last' : ''}`}>
             {trickCards.map((p) => (
-              <div key={`${p.seat}-${cardId(p.card)}`} className={`slot pos-${pos(p.seat)} ${showingLast && p.seat === lastWinner ? 'won' : ''}`} style={{ gridArea: pos(p.seat) }}>
+              <div key={`${p.seat}-${cardId(p.card)}`} className={`slot ${showingLast && p.seat === lastWinner ? 'won' : ''}`}>
                 <CardFace card={p.card} />
                 <small>{p.seat === me ? 'te' : name(p.seat)}</small>
               </div>
             ))}
-            {trickCards.length === 0 && <p className="mid table-hint">{isMyTurn ? 'Húzd ide a lapot' : 'Az asztal üres'}</p>}
-            </div>
-            {showingLast && lastWinner !== null && hand.phase !== 'ended' && (
-              <p className="caption">{lastWinner === me ? 'Te viszed' : `${name(lastWinner)} viszi`} az ütést</p>
-            )}
+            {trickCards.length === 0 && <p className="table-hint">{isMyTurn ? 'Húzd ide a lapot' : 'Az asztal üres'}</p>}
           </div>
-          {!showingLast && hand.lastTrick && hand.lastTrick.length > 0 && (
-            <div className="last-row">
-              <small>Előző ütés</small>
-              {hand.lastTrick.map((p) => (
-                <CardFace key={cardId(p.card)} card={p.card} size="tiny" />
-              ))}
-            </div>
+          {showingLast && lastWinner !== null && hand.phase !== 'ended' && (
+            <p className="caption">{lastWinner === me ? 'Te viszed' : `${name(lastWinner)} viszi`} az ütést</p>
           )}
         </div>
+
+        {!showingLast && hand.lastTrick && hand.lastTrick.length > 0 && (
+          <div className="last-row">
+            <small>Előző ütés</small>
+            {hand.lastTrick.map((p) => (
+              <CardFace key={cardId(p.card)} card={p.card} size="tiny" />
+            ))}
+          </div>
+        )}
       </div>
 
       <section className="dock">

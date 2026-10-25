@@ -1,0 +1,778 @@
+/* =========================================================================
+   The game screen. Written mobile first; the side panels appear from 900px.
+   Nothing here is positioned on top of anything else: every part has its own
+   place in the flow, and the table sizes its cards to fit inside itself.
+   ========================================================================= */
+:root {
+  --cw: min(76px, 17vw);
+  --hand-max: 66px;
+}
+
+.table-screen {
+  height: 100dvh;
+  width: 100%;
+  max-width: 2200px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ---- top bar ----------------------------------------------------------- */
+.topbar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  background: rgba(0, 0, 0, 0.3);
+  flex-wrap: wrap;
+}
+.brand {
+  display: none;
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+.brand em {
+  font-style: normal;
+  font-weight: 400;
+  color: var(--accent);
+}
+.scores {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.score {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 52px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid transparent;
+}
+.score small {
+  color: var(--muted);
+  max-width: 9ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.score b {
+  font-size: 1.25rem;
+  line-height: 1.1;
+}
+.score.me {
+  border-color: var(--accent);
+}
+.score.left {
+  background: rgba(46, 160, 67, 0.2);
+  border-color: rgba(46, 160, 67, 0.55);
+}
+.score.left b,
+.score em {
+  color: #8cf09a;
+}
+.score em {
+  font-style: normal;
+  font-size: 0.7rem;
+}
+.meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+.folk-border {
+  display: block;
+  flex: none;
+  width: 100%;
+  height: 18px;
+}
+
+/* ---- stage: wall, board, hand ------------------------------------------ */
+.stage {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(255, 255, 255, 0.08), transparent 55%),
+    repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.06) 0 2px, transparent 2px 44px),
+    linear-gradient(#134a30, #0b2e1f);
+}
+.stage > .side {
+  display: none;
+}
+.board {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+}
+
+/* ---- the other players, in one row ------------------------------------- */
+.opps {
+  flex: none;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.opp {
+  --back-w: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 6px 10px;
+  min-width: 0;
+  border-radius: 14px;
+  background: rgba(0, 0, 0, 0.28);
+  border: 2px solid transparent;
+  text-align: center;
+}
+.opp.turn {
+  border-color: var(--accent);
+  background: rgba(242, 184, 75, 0.14);
+  box-shadow: 0 0 14px rgba(242, 184, 75, 0.35);
+}
+.opp-name {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 2px 6px;
+  font-weight: 700;
+}
+.backs {
+  display: flex;
+  justify-content: center;
+}
+.backs .card {
+  --w: var(--back-w);
+}
+.backs .card + .card {
+  margin-left: calc(var(--back-w) * -0.55);
+}
+.stats {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+/* ---- facts about the hand (phones only; wide screens show them at the side) */
+.chips {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.35);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.chip.adu {
+  gap: 10px;
+  padding: 6px 16px 6px 12px;
+  font-size: 1rem;
+  background: var(--card-bg);
+  color: var(--card-ink);
+}
+.chip.warn {
+  background: rgba(217, 83, 79, 0.3);
+  color: #ffd2cf;
+}
+.chip.called .card {
+  box-shadow: none;
+}
+.last-row {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  opacity: 0.9;
+}
+.last-row small {
+  color: var(--muted);
+  margin-right: 4px;
+}
+
+/* ---- the table ---------------------------------------------------------- */
+.table-top {
+  position: relative;
+  flex: 1;
+  min-height: 140px;
+  container-type: size;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  overflow: hidden;
+  border: 10px solid #8b5a2b;
+  border-radius: 28px;
+  background: radial-gradient(ellipse at 50% 40%, #2c7d55, #164a31 75%);
+  box-shadow:
+    inset 0 0 0 3px #e9c46a,
+    inset 0 0 50px rgba(0, 0, 0, 0.35),
+    0 10px 20px rgba(0, 0, 0, 0.5);
+  transition: box-shadow 0.15s;
+}
+.table-top::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url('data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20width%3D%2764%27%20height%3D%2764%27%3E%3Cg%20transform%3D%27translate(16%2016)%20scale(1.2)%27%3E%3Cellipse%20cx%3D%270%27%20cy%3D%27-5%27%20rx%3D%272.6%27%20ry%3D%274.2%27%20fill%3D%27%23e5533d%27%20transform%3D%27rotate(0)%27%2F%3E%3Cellipse%20cx%3D%270%27%20cy%3D%27-5%27%20rx%3D%272.6%27%20ry%3D%274.2%27%20fill%3D%27%23e5533d%27%20transform%3D%27rotate(72)%27%2F%3E%3Cellipse%20cx%3D%270%27%20cy%3D%27-5%27%20rx%3D%272.6%27%20ry%3D%274.2%27%20fill%3D%27%23e5533d%27%20transform%3D%27rotate(144)%27%2F%3E%3Cellipse%20cx%3D%270%27%20cy%3D%27-5%27%20rx%3D%272.6%27%20ry%3D%274.2%27%20fill%3D%27%23e5533d%27%20transform%3D%27rotate(216)%27%2F%3E%3Cellipse%20cx%3D%270%27%20cy%3D%27-5%27%20rx%3D%272.6%27%20ry%3D%274.2%27%20fill%3D%27%23e5533d%27%20transform%3D%27rotate(288)%27%2F%3E%3Ccircle%20r%3D%272.1%27%20fill%3D%27%23f4c542%27%2F%3E%3Cellipse%20cx%3D%278%27%20cy%3D%275%27%20rx%3D%274.2%27%20ry%3D%271.7%27%20fill%3D%27%237cc576%27%20transform%3D%27rotate(35%208%205)%27%2F%3E%3Cellipse%20cx%3D%27-8%27%20cy%3D%275%27%20rx%3D%274.2%27%20ry%3D%271.7%27%20fill%3D%27%237cc576%27%20transform%3D%27rotate(145%20-8%205)%27%2F%3E%3C%2Fg%3E%3Cg%20transform%3D%27translate(48%2048)%20scale(1.05)%27%3E%3Cellipse%20cx%3D%270%27%20cy%3D%27-5%27%20rx%3D%272.6%27%20ry%3D%274.2%27%20fill%3D%27%23e5533d%27%20transform%3D%27rotate(0)%27%2F%3E%3Cellipse%20cx%3D%270%27%20cy%3D%27-5%27%20rx%3D%272.6%27%20ry%3D%274.2%27%20fill%3D%27%23e5533d%27%20transform%3D%27rotate(72)%27%2F%3E%3Cellipse%20cx%3D%270%27%20cy%3D%27-5%27%20rx%3D%272.6%27%20ry%3D%274.2%27%20fill%3D%27%23e5533d%27%20transform%3D%27rotate(144)%27%2F%3E%3Cellipse%20cx%3D%270%27%20cy%3D%27-5%27%20rx%3D%272.6%27%20ry%3D%274.2%27%20fill%3D%27%23e5533d%27%20transform%3D%27rotate(216)%27%2F%3E%3Cellipse%20cx%3D%270%27%20cy%3D%27-5%27%20rx%3D%272.6%27%20ry%3D%274.2%27%20fill%3D%27%23e5533d%27%20transform%3D%27rotate(288)%27%2F%3E%3Ccircle%20r%3D%272.1%27%20fill%3D%27%23f4c542%27%2F%3E%3Cellipse%20cx%3D%278%27%20cy%3D%275%27%20rx%3D%274.2%27%20ry%3D%271.7%27%20fill%3D%27%237cc576%27%20transform%3D%27rotate(35%208%205)%27%2F%3E%3Cellipse%20cx%3D%27-8%27%20cy%3D%275%27%20rx%3D%274.2%27%20ry%3D%271.7%27%20fill%3D%27%237cc576%27%20transform%3D%27rotate(145%20-8%205)%27%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E');
+  background-size: 64px 64px;
+  opacity: 0.4;
+  pointer-events: none;
+}
+.table-top::after {
+  content: '';
+  position: absolute;
+  inset: 8px;
+  border: 2px dashed rgba(229, 83, 61, 0.9);
+  border-radius: 18px;
+  pointer-events: none;
+}
+.table-top > :not(.table-adu) {
+  position: relative;
+  z-index: 1;
+}
+.table-adu {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  height: 46%;
+  width: auto;
+  opacity: 0.16;
+  pointer-events: none;
+}
+.table-top.drop-ready {
+  box-shadow:
+    inset 0 0 0 3px #e9c46a,
+    0 0 0 4px rgba(242, 184, 75, 0.85),
+    0 0 26px rgba(242, 184, 75, 0.6),
+    0 10px 20px rgba(0, 0, 0, 0.5);
+}
+.table-top.drop-over {
+  box-shadow:
+    inset 0 0 0 3px #e9c46a,
+    0 0 0 5px rgba(120, 235, 140, 0.95),
+    0 0 34px rgba(120, 235, 140, 0.8),
+    0 10px 20px rgba(0, 0, 0, 0.5);
+}
+.table-top.drop-blocked {
+  box-shadow:
+    inset 0 0 0 3px #e9c46a,
+    0 0 0 5px rgba(255, 100, 90, 0.95),
+    0 0 30px rgba(255, 100, 90, 0.75),
+    0 10px 20px rgba(0, 0, 0, 0.5);
+}
+
+/* The played cards stand in a row and are sized from the table's own height and width,
+   so they always fit, whatever the window. */
+.trick {
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  gap: clamp(8px, 2cqw, 28px);
+}
+.slot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+.slot .card {
+  --w: min(calc(50cqh / 1.62), 20cqw, 150px);
+}
+.slot small {
+  max-width: 10ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #f3e4b6;
+  font-size: 0.75rem;
+  text-shadow: 0 1px 2px #000;
+}
+.trick.last .card {
+  opacity: 0.85;
+}
+.slot.won .card {
+  opacity: 1;
+  box-shadow:
+    0 0 0 3px var(--accent),
+    0 4px 10px rgba(0, 0, 0, 0.5);
+}
+.table-hint {
+  margin: 0;
+  text-align: center;
+  font-weight: 700;
+  color: #f3e4b6;
+  text-shadow: 0 1px 4px #000;
+}
+.caption {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--accent);
+  text-shadow: 0 1px 3px #000;
+}
+
+/* ---- the bottom: what to do, and the hand ------------------------------ */
+.dock {
+  flex: none;
+  container-type: inline-size;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px calc(10px + env(safe-area-inset-bottom));
+  background: #07190f;
+  border-top: 1px solid var(--line);
+}
+.status,
+.role {
+  margin: 0;
+  text-align: center;
+}
+.status {
+  font-weight: 600;
+}
+.role {
+  font-size: 0.9rem;
+  color: var(--accent);
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+.suit-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--card-bg);
+  color: var(--card-ink);
+}
+.suit-btn:hover:not(:disabled) {
+  background: #fff;
+}
+.me-bar {
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 2px 12px;
+  padding: 4px 10px;
+  border-radius: 10px;
+  color: var(--muted);
+}
+.me-bar b {
+  color: var(--ink);
+}
+.me-bar.turn {
+  background: rgba(242, 184, 75, 0.16);
+  box-shadow: 0 0 0 2px var(--accent);
+}
+.hand {
+  --ov: 0.38;
+  --cw: min(var(--hand-max), calc((100cqw - 24px) / (1 + (1 - var(--ov)) * (var(--count, 5) - 1))));
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  padding: 16px 4px 4px;
+}
+.hand > * + * {
+  margin-left: calc(var(--cw) * var(--ov) * -1);
+}
+.hand-item {
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: grab;
+}
+.hand-item .card,
+.hand-item .card.dimmed {
+  cursor: grab;
+}
+.hand-item.lifted {
+  visibility: hidden;
+}
+.drag-ghost {
+  position: fixed;
+  z-index: 60;
+  pointer-events: none;
+  transform: rotate(-4deg) scale(1.06);
+  filter: drop-shadow(0 14px 14px rgba(0, 0, 0, 0.5));
+}
+.drag-ghost .card {
+  width: 100%;
+  height: 100%;
+}
+.picker {
+  max-width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.picker-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px;
+}
+.picker .card.size-tiny {
+  --w: min(44px, 11vw);
+}
+.meld-card .suit-icon {
+  filter: drop-shadow(0 3px 4px rgba(0, 0, 0, 0.4));
+}
+
+/* ---- side panels: players on the left, the hand's facts on the right --- */
+.players,
+.info {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+/* ---- left: hanging plates, the players, a shelf with a jug -------------- */
+.plates {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+}
+.plates svg {
+  width: min(42%, 104px);
+  height: auto;
+  filter: drop-shadow(2px 4px 4px rgba(0, 0, 0, 0.45));
+}
+.plates svg:nth-child(2) {
+  margin-top: 14px;
+}
+.players {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.pl {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 4px 10px;
+  align-items: center;
+  padding: 8px 10px;
+  border-radius: 16px;
+  background: rgba(0, 0, 0, 0.32);
+  border: 2px solid rgba(255, 255, 255, 0.08);
+}
+.pl.me {
+  border-color: rgba(242, 184, 75, 0.7);
+}
+.pl.turn {
+  background: rgba(242, 184, 75, 0.16);
+  box-shadow:
+    0 0 0 3px rgba(242, 184, 75, 0.5),
+    0 0 20px rgba(242, 184, 75, 0.35);
+}
+.pl.left {
+  background: rgba(46, 160, 67, 0.2);
+  border-color: rgba(46, 160, 67, 0.6);
+}
+.pl-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #2b1c04;
+  background: linear-gradient(#f6c862, #c98a1c);
+}
+.pl-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.25;
+}
+.pl-main b {
+  overflow-wrap: break-word;
+}
+.pl-main small {
+  color: var(--muted);
+}
+.pl-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 4px;
+}
+.pl-tags .tag {
+  margin-left: 0;
+}
+.tag.ok {
+  background: rgba(46, 160, 67, 0.3);
+  color: #9be8a4;
+}
+.pl-score {
+  text-align: center;
+  line-height: 1;
+}
+.pl-score b {
+  display: block;
+  font-size: 1.9rem;
+  font-variant-numeric: tabular-nums;
+}
+.pl.left .pl-score b {
+  color: #8cf09a;
+}
+.pl-score small {
+  font-size: 0.65rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.pl .clock {
+  grid-column: 1 / -1;
+  text-align: center;
+  font-size: 1.1rem;
+}
+
+/* ---- right: the adutt, called card, last trick, a shelf with pálinka ---- */
+.info {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.info-adu {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 14px 10px 12px;
+  border-radius: 20px;
+  background: var(--card-bg);
+  color: var(--card-ink);
+  border: 3px solid var(--accent);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.45);
+}
+.info-adu b {
+  font-size: 1.6rem;
+}
+.info-adu .info-label {
+  color: #7a6a3e;
+}
+.info-none {
+  font-size: 1.1rem;
+  color: #7a6a3e;
+  padding: 26px 0;
+}
+.info-label {
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+.info-meta {
+  margin: 0;
+  text-align: center;
+  color: var(--muted);
+}
+.info-flags {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: stretch;
+}
+.info-flags .chip {
+  justify-content: center;
+  text-align: center;
+}
+.info-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 10px;
+  border-radius: 16px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.mini-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  justify-content: center;
+}
+.shelf {
+  margin-top: auto;
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  gap: 6px;
+  padding-bottom: 14px;
+}
+.shelf::after {
+  content: '';
+  position: absolute;
+  left: 2%;
+  right: 2%;
+  bottom: 0;
+  height: 13px;
+  border-radius: 4px;
+  background: linear-gradient(#b8814a, #6a4020);
+  box-shadow: 0 8px 10px rgba(0, 0, 0, 0.5);
+}
+.shelf svg {
+  position: relative;
+  z-index: 1;
+  height: auto;
+  filter: drop-shadow(2px 4px 4px rgba(0, 0, 0, 0.45));
+}
+.shelf-jug {
+  width: min(58%, 140px);
+}
+.shelf-palinka {
+  width: min(58%, 150px);
+}
+.shelf-pogacsa {
+  width: min(38%, 92px);
+}
+
+/* ---- wide screens ------------------------------------------------------- */
+@media (min-width: 900px) {
+  :root {
+    --cw: clamp(60px, 10vh, 120px);
+    --hand-max: clamp(70px, 13.5vh, 160px);
+  }
+  .brand {
+    display: block;
+  }
+  .topbar .scores {
+    display: none;
+  }
+  .stage {
+    display: grid;
+    grid-template-columns: minmax(230px, 1fr) minmax(0, 3.7fr) minmax(230px, 1fr);
+    grid-template-rows: minmax(0, 1fr) auto;
+    grid-template-areas:
+      'left board right'
+      'left dock right';
+  }
+  .stage > .board {
+    grid-area: board;
+    padding: 12px 20px;
+    gap: 12px;
+  }
+  .stage > .dock {
+    grid-area: dock;
+    flex-flow: row wrap;
+    justify-content: center;
+    align-items: center;
+    column-gap: 20px;
+  }
+  .dock .me-bar,
+  .dock .hand,
+  .dock .picker {
+    flex-basis: 100%;
+  }
+  .dock .btn {
+    min-height: 48px;
+    font-size: 1.05rem;
+  }
+  .stage > .side {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    padding: 16px 16px 20px;
+    background: linear-gradient(rgba(0, 0, 0, 0.18), rgba(0, 0, 0, 0.32));
+    scrollbar-width: thin;
+  }
+  .side-left {
+    grid-area: left;
+    border-right: 1px solid rgba(233, 196, 106, 0.28);
+  }
+  .side-right {
+    grid-area: right;
+    border-left: 1px solid rgba(233, 196, 106, 0.28);
+  }
+  .board .chips,
+  .board .last-row {
+    display: none;
+  }
+  .opp {
+    --back-w: clamp(30px, 4.6vh, 48px);
+    padding: 8px 16px;
+  }
+  .opp-name {
+    font-size: 1.05rem;
+  }
+  .hand {
+    --ov: 0.2;
+  }
+  .picker .card.size-tiny {
+    --w: min(58px, 5vw);
+  }
+}
+
+/* Short windows: smaller cards so the whole table stays in view. */
+@media (min-width: 900px) and (max-height: 800px) {
+  :root {
+    --cw: clamp(56px, 9vh, 100px);
+    --hand-max: clamp(62px, 11.5vh, 130px);
+  }
+  .opp {
+    --back-w: clamp(24px, 4vh, 36px);
+    padding: 4px 12px;
+  }
+  .plates {
+    display: none;
+  }
+  .shelf-jug,
+  .shelf-palinka {
+    width: min(46%, 110px);
+  }
+  .info-adu svg,
+  .info-adu img {
+    height: 70px !important;
+  }
+}
+@media (min-width: 900px) and (max-width: 1199px) {
+  .stage {
+    grid-template-columns: minmax(180px, 1fr) minmax(0, 3.2fr) minmax(180px, 1fr);
+  }
+  .shelf-pogacsa {
+    display: none;
+  }
+}
+
+/* Small phones that are also short. */
+@media (max-width: 899px) and (max-height: 720px) {
+  :root {
+    --hand-max: 56px;
+  }
+}

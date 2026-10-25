@@ -3,89 +3,6 @@
  * a jug of tulips, a pálinka bottle with little glasses and a tulip band. Purely decorative.
  */
 
-const PETALS = [0, 72, 144, 216, 288];
-
-function Flower({ x, y, scale = 1 }: { x: number; y: number; scale?: number }) {
-  return (
-    <g transform={`translate(${x} ${y}) scale(${scale})`}>
-      {PETALS.map((a) => (
-        <ellipse key={a} cx="0" cy="-5" rx="2.6" ry="4.2" fill="#e5533d" transform={`rotate(${a})`} />
-      ))}
-      <circle r="2.1" fill="#f4c542" />
-      <ellipse cx="8" cy="5" rx="4.2" ry="1.7" fill="#7cc576" transform="rotate(35 8 5)" />
-      <ellipse cx="-8" cy="5" rx="4.2" ry="1.7" fill="#7cc576" transform="rotate(145 -8 5)" />
-    </g>
-  );
-}
-
-/** The wooden table with an embroidered cloth. Stretches to fill its box. */
-export function TableArt() {
-  return (
-    <svg className="table-art" viewBox="0 0 400 260" preserveAspectRatio="none" aria-hidden>
-      <defs>
-        <linearGradient id="tt-wood" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#b07a42" />
-          <stop offset="1" stopColor="#6a4020" />
-        </linearGradient>
-        <radialGradient id="tt-cloth" cx="50%" cy="45%" r="65%">
-          <stop offset="0" stopColor="#2c7d55" />
-          <stop offset="1" stopColor="#164a31" />
-        </radialGradient>
-        <pattern id="tt-grain" width="16" height="260" patternUnits="userSpaceOnUse">
-          <path d="M3 0V260M10 0V260" stroke="#3d2410" strokeOpacity=".2" fill="none" vectorEffect="non-scaling-stroke" />
-        </pattern>
-        <pattern id="tt-flowers" width="52" height="52" patternUnits="userSpaceOnUse">
-          <Flower x={13} y={13} />
-          <Flower x={39} y={39} scale={0.85} />
-        </pattern>
-      </defs>
-      <ellipse cx="200" cy="246" rx="170" ry="9" fill="#000" opacity=".4" />
-      <ellipse cx="200" cy="124" rx="197" ry="121" fill="url(#tt-wood)" />
-      <ellipse cx="200" cy="124" rx="197" ry="121" fill="url(#tt-grain)" />
-      <ellipse cx="200" cy="124" rx="181" ry="107" fill="url(#tt-cloth)" stroke="#e9c46a" strokeWidth="2" vectorEffect="non-scaling-stroke" />
-      <ellipse cx="200" cy="124" rx="181" ry="107" fill="url(#tt-flowers)" opacity=".5" />
-      <ellipse
-        cx="200"
-        cy="124"
-        rx="167"
-        ry="95"
-        fill="none"
-        stroke="#e5533d"
-        strokeWidth="2"
-        strokeDasharray="7 5"
-        vectorEffect="non-scaling-stroke"
-      />
-    </svg>
-  );
-}
-
-const POD = 'M0 0C-9 4-13 26-5 44C-2 50 3 50 5 44C12 26 9 4 0 0Z';
-
-/** A hanging string ("fűzér") of red paprika. */
-export function PaprikaString({ className }: { className?: string }) {
-  const pods = [
-    { y: 26, r: -16 },
-    { y: 62, r: 14 },
-    { y: 98, r: -12 },
-    { y: 134, r: 16 },
-    { y: 170, r: -10 },
-    { y: 204, r: 12 },
-  ];
-  return (
-    <svg className={className} viewBox="0 0 90 260" aria-hidden>
-      <circle cx="45" cy="5" r="4" fill="#8a6a3a" />
-      <path d="M45 6V240" stroke="#d9c08a" strokeWidth="2.2" />
-      {pods.map((p) => (
-        <g key={p.y} transform={`translate(45 ${p.y}) rotate(${p.r})`}>
-          <path d={POD} fill="#d3281c" />
-          <path d="M-4 8C-7 18-6 30-3 38" stroke="#fff" strokeOpacity=".35" strokeWidth="2" fill="none" strokeLinecap="round" />
-          <path d="M0 0C0-6 3-9 8-9" stroke="#4d8f3a" strokeWidth="3" fill="none" strokeLinecap="round" />
-        </g>
-      ))}
-    </svg>
-  );
-}
-
 function Tulip({ x, y, r }: { x: number; y: number; r: number }) {
   return (
     <g transform={`translate(${x} ${y}) rotate(${r})`}>
@@ -218,16 +135,6 @@ export function PlatePair() {
     <div className="plates" aria-hidden>
       <Plate />
       <Plate accent="#2f6fb2" />
-    </div>
-  );
-}
-
-/** Paprika strings that hang from the top corners of the playing area. */
-export function FolkDecor() {
-  return (
-    <div className="folk-decor" aria-hidden>
-      <PaprikaString className="folk-paprika left" />
-      <PaprikaString className="folk-paprika right" />
     </div>
   );
 }
