@@ -20,7 +20,7 @@ export interface Settings {
   showPoints: boolean;
 }
 
-export type Phase = 'callTrump' | 'callCard' | 'declare' | 'play' | 'ended';
+export type Phase = 'callTrump' | 'callCard' | 'declare' | 'kontra' | 'play' | 'ended';
 
 export interface Play {
   seat: number;
@@ -42,12 +42,15 @@ export type ResultReason =
   | 'snapszerWon'
   | 'snapszerFailed'
   | 'durkoWon'
-  | 'durkoFailed';
+  | 'durkoFailed'
+  | 'forfeit';
 
 export interface HandResult {
   winnerSide: number;
+  /** Points the winners go down by, already doubled when a kontra was called. */
   amount: number;
   reason: ResultReason;
+  kontra: boolean;
 }
 
 export interface HandState {
@@ -72,6 +75,10 @@ export interface HandState {
   sides: number[];
   declaration: Declaration | null;
   declareQueue: number[];
+  /** Seat that answered with a kontra (double points), or null. */
+  kontra: number | null;
+  /** Seats that still have to answer "kontra or play" (2v1 and 2v2). */
+  kontraQueue: number[];
   turn: number;
   trick: Play[];
   won: Card[][];
@@ -92,6 +99,8 @@ export type Move =
   | { type: 'callTrump'; seat: number; suit: Suit }
   | { type: 'callCard'; seat: number; card: Card }
   | { type: 'declare'; seat: number; kind: 'snapszer' | 'durko' | 'none' }
+  | { type: 'forfeit'; seat: number }
+  | { type: 'kontra'; seat: number; kontra: boolean }
   | { type: 'play'; seat: number; card: Card; meld?: boolean }
   | { type: 'swapTrump'; seat: number }
   | { type: 'cover'; seat: number }

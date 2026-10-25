@@ -855,3 +855,172 @@ button.card.playable:hover {
     opacity: 0.45;
   }
 }
+
+/* ---- new buttons, results, rules -------------------------------------- */
+.btn.danger {
+  border-color: #d9534f;
+  color: #ffb4ae;
+}
+.btn.danger:hover:not(:disabled) {
+  background: rgba(217, 83, 79, 0.25);
+}
+.btn.kontra {
+  background: #b8442b;
+  border-color: transparent;
+  color: #fff;
+}
+.btn.kontra:hover:not(:disabled) {
+  background: #d1522f;
+}
+.btn.pair {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(242, 184, 75, 0.18);
+  border-color: var(--accent);
+}
+.btn.pair .suit-icon {
+  background: var(--card-bg);
+  border-radius: 50%;
+  padding: 3px;
+  width: 26px;
+  height: 26px;
+}
+.tag.kontra {
+  background: rgba(217, 83, 79, 0.3);
+  color: #ffd2cf;
+}
+.chip.adu {
+  font-size: 1rem;
+  padding: 6px 14px;
+}
+.kontra-note {
+  color: #ffd2cf;
+  font-weight: 700;
+}
+.pair-choice {
+  display: flex;
+  gap: 14px;
+  justify-content: center;
+}
+.pair-choice .card {
+  --w: min(110px, 30vw);
+}
+.rules {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 8px;
+  font-size: 0.95rem;
+}
+.banner {
+  text-align: center;
+  padding: 12px;
+  border-radius: 12px;
+}
+.banner.win {
+  color: #8cf09a;
+  background: rgba(46, 160, 67, 0.2);
+  border: 1px solid rgba(46, 160, 67, 0.6);
+}
+.banner.lose {
+  color: #ffa7a1;
+  background: rgba(217, 83, 79, 0.2);
+  border: 1px solid rgba(217, 83, 79, 0.6);
+}
+.result-table tr.won td {
+  color: #a8f0b0;
+  background: rgba(46, 160, 67, 0.14);
+}
+.result-table tr.lost td {
+  color: #ffb4ae;
+  background: rgba(217, 83, 79, 0.12);
+}
+.result-badge {
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  padding: 2px 6px;
+  border-radius: 6px;
+  margin-right: 6px;
+  color: #fff;
+}
+.result-table tr.won .result-badge {
+  background: #1f7a33;
+}
+.result-table tr.lost .result-badge {
+  background: #9c2f2b;
+}
+.result-table .delta {
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.meta .link {
+  padding: 4px 6px;
+}
+
+/* ---- wide screens: a bigger table and bigger cards ---------------------- */
+@media (min-width: 900px) {
+  :root {
+    --cw: min(clamp(60px, 9.4vh, 124px), 10vw);
+    --hand-max: min(clamp(62px, 11.4vh, 140px), 12vw);
+  }
+  .trick {
+    row-gap: calc(var(--cw) * -0.55);
+    min-height: calc(var(--cw) * 2.7);
+  }
+  .slot .card {
+    --w: calc(var(--cw) * 0.8);
+  }
+  .table-screen {
+    max-width: 1500px;
+  }
+  .topbar {
+    padding: 12px 24px;
+  }
+  .score {
+    min-width: 84px;
+    padding: 4px 14px;
+  }
+  .score b {
+    font-size: 1.7rem;
+  }
+  .board {
+    padding: 12px 24px;
+    gap: 14px;
+  }
+  .status {
+    font-size: 1.15rem;
+  }
+  .dock .btn {
+    font-size: 1.05rem;
+    min-height: 50px;
+  }
+  .opp-name {
+    font-size: 1.1rem;
+  }
+  .stats {
+    font-size: 0.95rem;
+  }
+  .panel {
+    width: min(100%, 600px);
+  }
+  /* Status and buttons share one row so the table gets more height. */
+  .dock {
+    flex-flow: row wrap;
+    justify-content: center;
+    align-items: center;
+    column-gap: 20px;
+  }
+  .dock .me-bar,
+  .dock .hand,
+  .dock .picker {
+    flex-basis: 100%;
+  }
+}
+@media (max-height: 720px) {
+  :root {
+    --cw: min(58px, 15vw);
+    --hand-max: 62px;
+  }
+}

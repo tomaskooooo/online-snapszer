@@ -38,7 +38,7 @@ describe('dealing', () => {
 
     // Only suits the caller really holds may be named.
     const held = new Set(h.hands[0]!.map((x) => x.suit));
-    const offered = legalMoves(h, 0).map((m) => (m.type === 'callTrump' ? m.suit : null));
+    const offered = legalMoves(h, 0).flatMap((m) => (m.type === 'callTrump' ? [m.suit] : []));
     expect(new Set(offered)).toEqual(held);
     expect(legalMoves(h, 1)).toEqual([]);
 
@@ -58,7 +58,7 @@ describe('dealing', () => {
     expect(h.caller).toBe(0);
     expect(h.phase).toBe('callCard');
     expect(h.hands.map((x) => x.length)).toEqual([3, 3, 3, 3]);
-    expect(legalMoves(h, 0)).toHaveLength(24);
+    expect(legalMoves(h, 0).filter((m) => m.type === 'callCard')).toHaveLength(24);
 
     const after = applyMove(h, { type: 'callCard', seat: 0, card: c('Az') });
     expect(after.trumpSuit).toBe('zold');
@@ -87,13 +87,75 @@ describe('dealing', () => {
 });
 
 describe('declarations', () => {
-  it('only the caller declares in 2v1, then play starts with the caller', () => {
+  it('only the caller declares in 2v1, then the others answer kontra or play, then the caller leads', () => {
     let h = startHand('2v1', 2, mulberry32(6));
     h = applyMove(h, { type: 'callTrump', seat: 0, suit: h.hands[0]![0]!.suit });
     expect(legalMoves(h, 1)).toEqual([]);
     h = applyMove(h, { type: 'declare', seat: 0, kind: 'none' });
+    expect(h.phase).toBe('kontra');
+    expect(h.turn).toBe(1);
+    expect(legalMoves(h, 0)).toEqual([]);
+    expect(legalMoves(h, 2)).toEqual([]);
+    h = applyMove(h, { type: 'kontra', seat: 1, kontra: false });
+    expect(h.turn).toBe(2);
+    h = applyMove(h, { type: 'kontra', seat: 2, kontra: false });
     expect(h.phase).toBe('play');
     expect(h.turn).toBe(0);
+    expect(h.kontra).toBeNull();
+  });
+
+  it('1v1 has no kontra step: play starts right after the declarations', () => {
+    let h = startHand('1v1', 0, mulberry32(7));
+    h = applyMove(h, { type: 'declare', seat: 1, kind: 'none' });
+    h = applyMove(h, { type: 'declare', seat: 0, kind: 'none' });
+    expect(h.phase).toBe('play');
+    expect(legalMoves(h, 1).some((m) => m.type === 'forfeit')).toBe(false);
+  });
+
+  it('a kontra by one opponent ends the question and doubles what the hand is worth', () => {
+    let h = startHand('2v2', 3, mulberry32(8));
+    h = applyMove(h, { type: 'callCard', seat: 0, card: c('Az') });
+    h = applyMove(h, { type: 'declare', seat: 0, kind: 'none' });
+    expect(h.kontraQueue).toEqual([1, 2, 3]);
+    h = applyMove(h, { type: 'kontra', seat: 1, kontra: false });
+    h = applyMove(h, { type: 'kontra', seat: 2, kontra: true });
+    expect(h.phase).toBe('play');
+    expect(h.kontra).toBe(2);
+    expect(legalMoves(h, 3)).not.toContainEqual({ type: 'kontra', seat: 3, kontra: true });
+
+    // Same table as always, then doubled: opponents under 33 with a trick are worth 4, so 8.
+    h.hands = [['9m'], ['9p'], ['9z'], ['Um']].map((codes) => codes.map(c));
+    h.sides = [0, 1, 1, 0];
+    h.tricksWon = [0, 1, 0, 0];
+    h.tricksPlayed = 1;
+    h.points = [0, 5, 0, 0];
+    h.turn = 0;
+    h.trumpSuit = 'tok';
+    h = play(play(play(play(h, 0, '9m'), 1, '9p'), 2, '9z'), 3, 'Um');
+    expect(h.result).toMatchObject({ kontra: true, amount: 8, reason: 'lastTrick' });
+  });
+
+  it('the caller can forfeit before playing: everybody else goes down 6', () => {
+    let h = startHand('2v2', 3, mulberry32(9));
+    expect(hasMove(h, 0, { type: 'forfeit', seat: 0 })).toBe(true);
+    expect(hasMove(h, 1, { type: 'forfeit', seat: 1 })).toBe(false);
+    h = applyMove(h, { type: 'callCard', seat: 0, card: c('At') });
+    expect(hasMove(h, 0, { type: 'forfeit', seat: 0 })).toBe(true);
+    h = applyMove(h, { type: 'forfeit', seat: 0 });
+    expect(h.phase).toBe('ended');
+    expect(h.result).toEqual({ winnerSide: 1, amount: 6, reason: 'forfeit', kontra: false });
+    expect(h.sides).toEqual([0, 1, 1, 1]);
+  });
+
+  it('forfeiting is possible in every step before play, but not during play or after a kontra step', () => {
+    let h = startHand('2v1', 2, mulberry32(10));
+    expect(hasMove(h, 0, { type: 'forfeit', seat: 0 })).toBe(true); // choosing the adutt
+    h = applyMove(h, { type: 'callTrump', seat: 0, suit: h.hands[0]![0]!.suit });
+    expect(hasMove(h, 0, { type: 'forfeit', seat: 0 })).toBe(true); // declaring
+    h = applyMove(h, { type: 'declare', seat: 0, kind: 'none' });
+    expect(hasMove(h, 0, { type: 'forfeit', seat: 0 })).toBe(false);
+    h = applyMove(applyMove(h, { type: 'kontra', seat: 1, kontra: false }), { type: 'kontra', seat: 2, kontra: false });
+    expect(legalMoves(h, 0).some((m) => m.type === 'forfeit')).toBe(false);
   });
 
   it('1v1: both players get the chance, the non-dealer first; a declaration closes the window', () => {
@@ -209,7 +271,7 @@ describe('"Kész!" claims', () => {
 
   it('a correct claim wins and scores by the loser side', () => {
     const h = applyMove(claimScenario([70, 0, 0], [3, 0, 0]), { type: 'claim', seat: 0 });
-    expect(h.result).toEqual({ winnerSide: 0, amount: 6, reason: 'claim' });
+    expect(h.result).toEqual({ winnerSide: 0, amount: 6, reason: 'claim', kontra: false });
     expect(h.phase).toBe('ended');
   });
 
@@ -222,7 +284,7 @@ describe('"Kész!" claims', () => {
 
   it('a false claim gives the hand to the other side, scored by the claimer\'s points', () => {
     const a = applyMove(claimScenario([50, 0, 0], [3, 0, 0]), { type: 'claim', seat: 0 });
-    expect(a.result).toEqual({ winnerSide: 1, amount: 2, reason: 'falseClaim' });
+    expect(a.result).toEqual({ winnerSide: 1, amount: 2, reason: 'falseClaim', kontra: false });
     const b = applyMove(claimScenario([20, 0, 0], [1, 0, 0]), { type: 'claim', seat: 0 });
     expect(b.result).toMatchObject({ winnerSide: 1, amount: 4 });
     const d = applyMove(claimScenario([0, 0, 0], [0, 0, 0]), { type: 'claim', seat: 0 });
@@ -259,7 +321,7 @@ describe('Snapszer and durkó', () => {
     h = play(h, 0, '9p');
     h = play(h, 1, 'Ap');
     h = play(h, 2, 'Tz');
-    expect(h.result).toEqual({ winnerSide: 1, amount: 12, reason: 'snapszerFailed' });
+    expect(h.result).toEqual({ winnerSide: 1, amount: 12, reason: 'snapszerFailed', kontra: false });
   });
 
   it('durkó fails immediately when the other side wins a trick: opponents get 32', () => {
@@ -268,7 +330,7 @@ describe('Snapszer and durkó', () => {
     h = play(h, 0, '9p');
     h = play(h, 1, 'Ap');
     h = play(h, 2, 'Tz');
-    expect(h.result).toEqual({ winnerSide: 1, amount: 32, reason: 'durkoFailed' });
+    expect(h.result).toEqual({ winnerSide: 1, amount: 32, reason: 'durkoFailed', kontra: false });
   });
 
   it('a Snapszer holder pressing "Kész!" with 66 wins 12', () => {
@@ -278,7 +340,7 @@ describe('Snapszer and durkó', () => {
     h.tricksWon = [4, 0, 0];
     h.tricksPlayed = 4;
     h.claimWindow = 0;
-    expect(applyMove(h, { type: 'claim', seat: 0 }).result).toEqual({ winnerSide: 0, amount: 12, reason: 'snapszerWon' });
+    expect(applyMove(h, { type: 'claim', seat: 0 }).result).toEqual({ winnerSide: 0, amount: 12, reason: 'snapszerWon', kontra: false });
   });
 
   it('a Snapszer holder pressing "Kész!" without 66 loses 12', () => {
@@ -288,18 +350,18 @@ describe('Snapszer and durkó', () => {
     h.tricksWon = [3, 0, 0];
     h.tricksPlayed = 3;
     h.claimWindow = 0;
-    expect(applyMove(h, { type: 'claim', seat: 0 }).result).toEqual({ winnerSide: 1, amount: 12, reason: 'snapszerFailed' });
+    expect(applyMove(h, { type: 'claim', seat: 0 }).result).toEqual({ winnerSide: 1, amount: 12, reason: 'snapszerFailed', kontra: false });
   });
 
   it('winning every trick scores 22, or 32 with durkó declared', () => {
     const oneCard = () => scenario({ mode: '2v1', hands: ['Ap', '9p', '9z'], trump: 'tok' });
     let h = play(play(play(oneCard(), 0, 'Ap'), 1, '9p'), 2, '9z');
-    expect(h.result).toEqual({ winnerSide: 0, amount: 22, reason: 'allTricks' });
+    expect(h.result).toEqual({ winnerSide: 0, amount: 22, reason: 'allTricks', kontra: false });
 
     h = oneCard();
     h.declaration = { kind: 'durko', side: 0, by: 0 };
     h = play(play(play(h, 0, 'Ap'), 1, '9p'), 2, '9z');
-    expect(h.result).toEqual({ winnerSide: 0, amount: 32, reason: 'durkoWon' });
+    expect(h.result).toEqual({ winnerSide: 0, amount: 32, reason: 'durkoWon', kontra: false });
   });
 
   it('without a claim the last trick wins, scored by the loser side', () => {
@@ -309,7 +371,7 @@ describe('Snapszer and durkó', () => {
     h.tricksPlayed = 2;
     h.points = [10, 40, 0];
     h = play(play(play(h, 0, 'Ap'), 1, '9p'), 2, '9z');
-    expect(h.result).toEqual({ winnerSide: 0, amount: 2, reason: 'lastTrick' });
+    expect(h.result).toEqual({ winnerSide: 0, amount: 2, reason: 'lastTrick', kontra: false });
   });
 
   it('having 66 but not claiming loses if the other side wins the last trick', () => {
@@ -389,7 +451,7 @@ describe('1v1 specials', () => {
     h.tricksPlayed = 1;
     h.points = [0, 5];
     h = play(play(h, 0, 'Ap'), 1, '9p');
-    expect(h.result).toEqual({ winnerSide: 1, amount: 4, reason: 'coverFailed' });
+    expect(h.result).toEqual({ winnerSide: 1, amount: 4, reason: 'coverFailed', kontra: false });
   });
 
   it('a pair is credited only after its owner wins a trick: 20, or 40 in adu', () => {
@@ -426,11 +488,26 @@ describe('1v1 specials', () => {
     expect(applyMove(h, { type: 'claim', seat: 0 }).result).toMatchObject({ winnerSide: 0, reason: 'claim' });
   });
 
-  it('pairs exist only in 1v1 and need both cards', () => {
-    const three = scenario({ mode: '2v1', hands: ['Kz Fz', '9m 9p', 'Am Ap'], trump: 'tok' });
-    expect(legalMoves(three, 0).some((m) => m.type === 'play' && m.meld)).toBe(false);
+  it('a pair can be declared on a lead in every mode, but needs both cards', () => {
+    for (const mode of ['2v1', '2v2'] as const) {
+      const hands = mode === '2v1' ? ['Kz Fz 9m', '9m 9p', 'Am Ap'] : ['Kz Fz 9m', '9m 9p', 'Am Ap', 'Um Up'];
+      const table = scenario({ mode, hands, trump: 'tok' });
+      expect(legalMoves(table, 0).filter((m) => m.type === 'play' && m.meld)).toHaveLength(2);
+    }
     const one = scenario({ mode: '1v1', hands: ['Kz 9z', '9m 9p'], trump: 'tok', turn: 0 });
     expect(legalMoves(one, 0).some((m) => m.type === 'play' && m.meld)).toBe(false);
+  });
+
+  it('pairs score 20, or 40 in adutt, in a three player hand too', () => {
+    let h = scenario({ mode: '2v1', hands: ['Kz Fz 9m', '9z Am 9p', 'Um Ap Up'], trump: 'tok' });
+    h = play(h, 0, 'Fz', true);
+    expect(h.lastMeld).toEqual({ seat: 0, suit: 'zold', points: 20 });
+    h = play(play(h, 1, '9z'), 2, 'Um');
+    expect(h.points[0]).toBe(5 + 20);
+
+    let t = scenario({ mode: '2v1', hands: ['Kt Ft 9m', '9t Am 9p', 'Um Ap Up'], trump: 'tok' });
+    t = play(play(play(t, 0, "Kt", true), 1, "9t"), 2, "Um");
+    expect(t.points[0]).toBe(6 + 40);
   });
 });
 

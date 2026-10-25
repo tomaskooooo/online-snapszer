@@ -35,6 +35,8 @@ export function moveKey(m: Move): string {
       return `declare:${m.seat}:${m.kind}`;
     case 'play':
       return `play:${m.seat}:${cardId(m.card)}:${m.meld ? 1 : 0}`;
+    case 'kontra':
+      return `kontra:${m.seat}:${m.kontra ? 1 : 0}`;
     default:
       return `${m.type}:${m.seat}`;
   }
@@ -62,6 +64,8 @@ export function createBareHand(mode: Mode, dealer: number): HandState {
     sides: [],
     declaration: null,
     declareQueue: [],
+    kontra: null,
+    kontraQueue: [],
     turn: leader,
     trick: [],
     won: Array.from({ length: n }, () => []),
@@ -191,21 +195,34 @@ export function legalMoves(h: HandState, seat: number): Move[] {
     if (seat !== h.caller) return [];
     const suits = new Set(h.hands[seat]!.map((c) => c.suit));
     for (const suit of SUITS) if (suits.has(suit)) moves.push({ type: 'callTrump', seat, suit });
+    moves.push({ type: 'forfeit', seat });
     return moves;
   }
 
   if (h.phase === 'callCard') {
     if (seat !== h.caller) return [];
     for (const card of makeDeck(h.mode)) moves.push({ type: 'callCard', seat, card });
+    moves.push({ type: 'forfeit', seat });
     return moves;
   }
 
   if (h.phase === 'declare') {
     if (h.declareQueue[0] !== seat) return [];
-    return [
+    const declares: Move[] = [
       { type: 'declare', seat, kind: 'snapszer' },
       { type: 'declare', seat, kind: 'durko' },
       { type: 'declare', seat, kind: 'none' },
+    ];
+    // The caller (2v1 and 2v2) may give up before a card is played.
+    if (h.mode !== '1v1') declares.push({ type: 'forfeit', seat });
+    return declares;
+  }
+
+  if (h.phase === 'kontra') {
+    if (h.kontraQueue[0] !== seat) return [];
+    return [
+      { type: 'kontra', seat, kontra: true },
+      { type: 'kontra', seat, kontra: false },
     ];
   }
 
@@ -222,15 +239,17 @@ export function legalMoves(h: HandState, seat: number): Move[] {
 
   for (const card of hand) moves.push({ type: 'play', seat, card });
 
-  if (h.mode === '1v1') {
-    for (const suit of SUITS) {
-      const king = hand.find((c) => c.suit === suit && c.rank === 'king');
-      const over = hand.find((c) => c.suit === suit && c.rank === 'over');
-      if (king && over) {
-        moves.push({ type: 'play', seat, card: king, meld: true });
-        moves.push({ type: 'play', seat, card: over, meld: true });
-      }
+  // A pair (Király + Felső) can be declared on any lead: 20, or 40 in adutt.
+  for (const suit of SUITS) {
+    const king = hand.find((c) => c.suit === suit && c.rank === 'king');
+    const over = hand.find((c) => c.suit === suit && c.rank === 'over');
+    if (king && over) {
+      moves.push({ type: 'play', seat, card: king, meld: true });
+      moves.push({ type: 'play', seat, card: over, meld: true });
     }
+  }
+
+  if (h.mode === '1v1') {
     if (h.covered === null && h.stock.length > 0) {
       const hasUnder = hand.some((c) => c.suit === h.trumpSuit && c.rank === 'under');
       if (hasUnder && h.stock.length >= 3) moves.push({ type: 'swapTrump', seat });
@@ -262,13 +281,16 @@ export function tableAmount(loserPoints: number, loserTricks: number): number {
   return loserTricks > 0 ? 4 : 6;
 }
 
-function endHand(h: HandState, result: HandResult): void {
+type PlainResult = Omit<HandResult, 'kontra'>;
+
+function endHand(h: HandState, result: PlainResult): void {
+  const doubled = h.kontra !== null;
   h.phase = 'ended';
-  h.result = result;
+  h.result = { ...result, amount: result.amount * (doubled ? 2 : 1), kontra: doubled };
   h.claimWindow = null;
 }
 
-function tableResult(h: HandState, winnerSide: number, loserSide: number, reason: HandResult['reason']): HandResult {
+function tableResult(h: HandState, winnerSide: number, loserSide: number, reason: HandResult['reason']): PlainResult {
   const loser = sideStats(h, loserSide);
   return { winnerSide, amount: tableAmount(loser.points, loser.tricks), reason };
 }
@@ -376,12 +398,37 @@ export function applyMove(prev: HandState, move: Move): HandState {
         h.declaration = { kind: move.kind, side: h.sides[seat]!, by: seat };
         h.declareQueue = [];
       }
-      if (h.declareQueue.length === 0) {
+      if (h.declareQueue.length > 0) {
+        h.turn = h.declareQueue[0]!;
+      } else if (h.mode === '1v1') {
         h.phase = 'play';
         h.turn = h.leader;
       } else {
-        h.turn = h.declareQueue[0]!;
+        // Everyone except the caller may now answer with a kontra.
+        h.phase = 'kontra';
+        h.kontraQueue = Array.from({ length: h.n - 1 }, (_, i) => (h.caller + 1 + i) % h.n);
+        h.turn = h.kontraQueue[0]!;
       }
+      break;
+
+    case 'kontra':
+      h.kontraQueue.shift();
+      if (move.kontra) {
+        h.kontra = seat;
+        h.kontraQueue = [];
+      }
+      if (h.kontraQueue.length === 0) {
+        h.phase = 'play';
+        h.turn = h.leader;
+      } else {
+        h.turn = h.kontraQueue[0]!;
+      }
+      break;
+
+    case 'forfeit':
+      // Everybody else goes down, partner or not.
+      h.sides = Array.from({ length: h.n }, (_, s) => (s === h.caller ? 0 : 1));
+      endHand(h, { winnerSide: 1, amount: 6, reason: 'forfeit' });
       break;
 
     case 'swapTrump': {

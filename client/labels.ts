@@ -8,33 +8,26 @@ export const RANK_NAME: Record<Rank, string> = {
   king: 'Király',
   over: 'Felső',
   under: 'Alsó',
-  nine: '9',
-};
-
-/** Short index shown in a card corner, where cards overlap in a hand. */
-export const RANK_CORNER: Record<Rank, string> = {
-  ace: 'Ász',
-  ten: '10',
-  king: 'Kir',
-  over: 'Fel',
-  under: 'Als',
-  nine: '9',
+  nine: 'Kilences',
 };
 
 export const MODE_INFO: Record<Mode, { title: string; players: number; blurb: string }> = {
-  '1v1': { title: '1v1', players: 2, blurb: 'Classic two-player game with a talon, pairs and trump swap.' },
-  '2v1': { title: '2v1', players: 3, blurb: 'Three players. The caller picks the adu and plays alone against the other two.' },
-  '2v2': { title: '2v2', players: 4, blurb: 'Four players. The caller names a card; its holder is the secret partner.' },
+  '1v1': { title: '1v1', players: 2, blurb: 'Klasszikus kétszemélyes játék talonnal, 20-40 bemondással és az adutt alsó cseréjével.' },
+  '2v1': { title: '2v1', players: 3, blurb: 'Három játékos. A hívó választja az aduttot, és egyedül játszik a másik kettő ellen.' },
+  '2v2': { title: '2v2', players: 4, blurb: 'Négy játékos. A hívó megnevez egy lapot, akinél az van, az a titkos társa.' },
 };
 
 export const REASON_TEXT: Record<ResultReason, string> = {
-  claim: 'Kész! was called with 66 or more',
-  falseClaim: 'Kész! was called without 66 points',
-  lastTrick: 'Nobody called Kész!, so the last trick decided it',
-  allTricks: 'Every trick was taken',
-  coverFailed: 'The talon was covered but 66 was never reached',
-  snapszerWon: 'Snapszer succeeded',
-  snapszerFailed: 'Snapszer failed',
-  durkoWon: 'Durkó succeeded',
-  durkoFailed: 'Durkó failed',
+  claim: 'Kész! – megvolt a 66 pont',
+  falseClaim: 'Hibás Kész! – nem volt meg a 66 pont',
+  lastTrick: 'Senki sem mondott Kész!-t, az utolsó ütés döntött',
+  allTricks: 'Minden ütést megnyert',
+  coverFailed: 'A talont betakarta, de nem érte el a 66 pontot',
+  snapszerWon: 'A Snapszer sikerült',
+  snapszerFailed: 'A Snapszer nem sikerült',
+  durkoWon: 'A Durch sikerült',
+  durkoFailed: 'A Durch nem sikerült',
+  forfeit: 'A hívó feladta a leosztást',
 };
+
+export const tricksText = (n: number) => `${n} ütés`;

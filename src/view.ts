@@ -34,6 +34,8 @@ export interface HandView {
   /** Card points per seat. Null when the host turned point counts off. */
   points: number[] | null;
   declaration: Declaration | null;
+  /** Seat that called kontra (double points), or null. */
+  kontra: number | null;
   lastMeld: { seat: number; suit: Suit; points: number } | null;
   claimAvailable: boolean;
   legalMoves: Move[];
@@ -75,6 +77,7 @@ export function viewFor(match: MatchState, seat: number): MatchView {
     myTricks: h.won[seat]!,
     points: match.settings.showPoints ? h.points : null,
     declaration: h.declaration,
+    kontra: h.kontra,
     lastMeld: h.lastMeld,
     claimAvailable: h.phase === 'play' && h.claimWindow === seat && h.declaration?.kind !== 'durko',
     legalMoves: legalMoves(h, seat),

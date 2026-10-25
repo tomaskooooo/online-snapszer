@@ -45,22 +45,22 @@ describe('creating and joining', () => {
 
   it('validates the name and the settings', async () => {
     const store = new MemoryStore();
-    await expect(createLobby(store, { name: '  ', mode: '1v1', startScore: 30 })).rejects.toThrow(/name/);
-    await expect(createLobby(store, { name: 'A', mode: '5v5', startScore: 30 })).rejects.toThrow(/mode/);
-    await expect(createLobby(store, { name: 'A', mode: '1v1', startScore: 25 })).rejects.toThrow(/score/i);
+    await expect(createLobby(store, { name: '  ', mode: '1v1', startScore: 30 })).rejects.toThrow(/nevet/);
+    await expect(createLobby(store, { name: 'A', mode: '5v5', startScore: 30 })).rejects.toThrow(/játékmód/);
+    await expect(createLobby(store, { name: 'A', mode: '1v1', startScore: 25 })).rejects.toThrow(/kezdőpont/);
   });
 
   it('lets friends join with the code in any case, until it is full', async () => {
     const { store, host } = await make('1v1');
     const bela = await joinLobby(store, { code: host.code.toLowerCase(), name: 'Béla' });
     expect(bela.code).toBe(host.code);
-    await expect(joinLobby(store, { code: host.code, name: 'Cili' })).rejects.toThrow(/full/);
-    await expect(joinLobby(store, { code: 'ZZZZ', name: 'Cili' })).rejects.toThrow(/No lobby/);
+    await expect(joinLobby(store, { code: host.code, name: 'Cili' })).rejects.toThrow(/megtelt/);
+    await expect(joinLobby(store, { code: 'ZZZZ', name: 'Cili' })).rejects.toThrow(/Nincs ilyen/);
   });
 
   it('refuses a duplicate name and restores a seat for a known token', async () => {
     const { store, host } = await make('2v1');
-    await expect(joinLobby(store, { code: host.code, name: 'anna' })).rejects.toThrow(/name/);
+    await expect(joinLobby(store, { code: host.code, name: 'anna' })).rejects.toThrow(/nevet/);
     const again = await joinLobby(store, { code: host.code, name: 'whatever', token: host.token });
     expect(again.playerId).toBe(host.playerId);
     expect((await peek(store, host.code, host.token)).players).toHaveLength(1);
@@ -88,8 +88,8 @@ describe('what the server reveals', () => {
   it('rejects strangers and wrong tokens', async () => {
     const { store, host } = await make('1v1');
     const other = await make('1v1');
-    await expect(getState(store, { code: host.code, token: 'nope' })).rejects.toThrow(/not part/);
-    await expect(getState(store, { code: host.code, token: other.host.token })).rejects.toThrow(/not part/);
+    await expect(getState(store, { code: host.code, token: 'nope' })).rejects.toThrow(/Nem vagy tagja/);
+    await expect(getState(store, { code: host.code, token: other.host.token })).rejects.toThrow(/Nem vagy tagja/);
   });
 });
 
@@ -98,15 +98,15 @@ describe('host controls', () => {
     const { store, host } = await make('2v1');
     const bela = await joinLobby(store, { code: host.code, name: 'Béla' });
     const asBela = { code: host.code, token: bela.token };
-    await expect(updateSettings(store, { ...asBela, settings: { startScore: 60 } })).rejects.toThrow(/host/);
-    await expect(addBot(store, asBela)).rejects.toThrow(/host/);
-    await expect(startGame(store, asBela)).rejects.toThrow(/host/);
+    await expect(updateSettings(store, { ...asBela, settings: { startScore: 60 } })).rejects.toThrow(/gazd/);
+    await expect(addBot(store, asBela)).rejects.toThrow(/gazd/);
+    await expect(startGame(store, asBela)).rejects.toThrow(/gazd/);
 
     const asHost = { code: host.code, token: host.token };
     const updated = await updateSettings(store, { ...asHost, settings: { startScore: 60, showPoints: false } });
     expect(updated.view.settings).toEqual({ mode: '2v1', startScore: 60, showPoints: false });
     await expect(updateSettings(store, { ...asHost, settings: { mode: '1v1' } })).resolves.toBeTruthy();
-    await expect(addBot(store, asHost)).rejects.toThrow(/full/);
+    await expect(addBot(store, asHost)).rejects.toThrow(/megtelt/);
   });
 
   it('cannot shrink the mode below the number of players, and cannot start short', async () => {
@@ -114,8 +114,8 @@ describe('host controls', () => {
     const asHost = { code: host.code, token: host.token };
     await joinLobby(store, { code: host.code, name: 'B' });
     await joinLobby(store, { code: host.code, name: 'C' });
-    await expect(updateSettings(store, { ...asHost, settings: { mode: '1v1' } })).rejects.toThrow(/more players/);
-    await expect(startGame(store, asHost)).rejects.toThrow(/1 more/);
+    await expect(updateSettings(store, { ...asHost, settings: { mode: '1v1' } })).rejects.toThrow(/Többen/);
+    await expect(startGame(store, asHost)).rejects.toThrow(/1 játékos/);
   });
 
   it('fills seats with bots, names them, and lets the host remove a player', async () => {
@@ -126,7 +126,7 @@ describe('host controls', () => {
     expect(view.players.map((p) => p.name)).toEqual(['Anna', 'Bot 1', 'Bot 2']);
     const removed = await removePlayer(store, { ...asHost, playerId: view.players[1]!.id });
     expect(removed.view.players.map((p) => p.name)).toEqual(['Anna', 'Bot 2']);
-    await expect(removePlayer(store, { ...asHost, playerId: host.playerId })).rejects.toThrow(/host/);
+    await expect(removePlayer(store, { ...asHost, playerId: host.playerId })).rejects.toThrow(/gazd/);
   });
 
   it('hands the lobby to another human when the host leaves, and deletes an empty one', async () => {
@@ -136,7 +136,7 @@ describe('host controls', () => {
     const view = await peek(store, host.code, bela.token);
     expect(view.me.isHost).toBe(true);
     await leaveLobby(store, { code: host.code, token: bela.token });
-    await expect(getState(store, { code: host.code, token: bela.token })).rejects.toThrow(/No lobby/);
+    await expect(getState(store, { code: host.code, token: bela.token })).rejects.toThrow(/Nincs ilyen/);
   });
 });
 
@@ -203,7 +203,7 @@ describe('moves', () => {
 
     // Whoever may not act cannot, even by claiming to be the other seat.
     const forged = { type: 'declare', seat: waitingView.me.seat === 0 ? 1 : 0, kind: 'none' };
-    await expect(playMove(store, { code: host.code, token: waiting.token, move: forged })).rejects.toThrow(/not allowed/);
+    await expect(playMove(store, { code: host.code, token: waiting.token, move: forged })).rejects.toThrow(/nem megengedett/);
     await expect(playMove(store, { code: host.code, token: acting.token, move: { type: 'cheat' } })).rejects.toThrow();
   });
 
@@ -248,7 +248,7 @@ describe('http layer', () => {
     expect((await handleApi(store, { method: 'GET', action: 'create', query: {}, body: {} })).status).toBe(405);
     expect((await handleApi(store, { method: 'POST', action: 'nope', query: {}, body: {} })).status).toBe(404);
     const bad = await handleApi(store, { method: 'GET', action: 'state', query: { code, token: 'x' }, body: undefined });
-    expect(bad).toEqual({ status: 403, body: { error: 'You are not part of this lobby' } });
+    expect(bad).toEqual({ status: 403, body: { error: 'Nem vagy tagja ennek a szobának' } });
   });
 });
 

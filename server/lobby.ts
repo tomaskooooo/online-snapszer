@@ -55,7 +55,7 @@ function cleanName(raw: unknown): string {
     .replace(/\s+/g, ' ')
     .trim()
     .slice(0, MAX_NAME);
-  if (!name) throw new HttpError(400, 'Please enter a name');
+  if (!name) throw new HttpError(400, 'Adj meg egy nevet');
   return name;
 }
 
@@ -63,14 +63,14 @@ function cleanSettings(raw: Partial<Settings> | undefined, base?: Settings): Set
   const mode = (raw?.mode ?? base?.mode) as Mode;
   const startScore = (raw?.startScore ?? base?.startScore) as StartScore;
   const showPoints = raw?.showPoints ?? base?.showPoints ?? true;
-  if (!MODES.includes(mode)) throw new HttpError(400, 'Unknown game mode');
-  if (!START_SCORES.includes(startScore)) throw new HttpError(400, 'Starting score must be 30, 40, 50 or 60');
+  if (!MODES.includes(mode)) throw new HttpError(400, 'Ismeretlen játékmód');
+  if (!START_SCORES.includes(startScore)) throw new HttpError(400, 'A kezdőpontszám 30, 40, 50 vagy 60 lehet');
   return { mode, startScore, showPoints: Boolean(showPoints) };
 }
 
 async function load(store: Store, code: string): Promise<Lobby> {
   const lobby = await store.get(normalizeCode(code));
-  if (!lobby) throw new HttpError(404, 'No lobby with that code');
+  if (!lobby) throw new HttpError(404, 'Nincs ilyen kódú szoba');
   lobby.timeouts ??= [];
   lobby.deadline ??= null;
   return lobby;
@@ -78,12 +78,12 @@ async function load(store: Store, code: string): Promise<Lobby> {
 
 function authenticate(lobby: Lobby, token: unknown): LobbyPlayer {
   const player = lobby.players.find((p) => !p.bot && p.token === token);
-  if (!player) throw new HttpError(403, 'You are not part of this lobby');
+  if (!player) throw new HttpError(403, 'Nem vagy tagja ennek a szobának');
   return player;
 }
 
 function requireHost(lobby: Lobby, player: LobbyPlayer): void {
-  if (lobby.hostId !== player.id) throw new HttpError(403, 'Only the host can do that');
+  if (lobby.hostId !== player.id) throw new HttpError(403, 'Ezt csak a szoba gazdája teheti meg');
 }
 
 async function save(store: Store, lobby: Lobby): Promise<void> {
@@ -196,7 +196,7 @@ export async function createLobby(
     };
     if (await store.create(code, lobby)) return { code, playerId: host.id, token: host.token };
   }
-  throw new HttpError(503, 'Could not find a free lobby code, try again');
+  throw new HttpError(503, 'Nem sikerült szabad kódot találni, próbáld újra');
 }
 
 export function joinLobby(store: Store, input: { code?: unknown; name?: unknown; token?: unknown }): Promise<JoinResponse> {
@@ -209,10 +209,10 @@ export function joinLobby(store: Store, input: { code?: unknown; name?: unknown;
     if (existing) return { code, playerId: existing.id, token: existing.token };
 
     const name = cleanName(input.name);
-    if (lobby.phase !== 'waiting') throw new HttpError(409, 'That game has already started');
-    if (lobby.players.length >= playerCount(lobby.settings.mode)) throw new HttpError(409, 'The lobby is full');
+    if (lobby.phase !== 'waiting') throw new HttpError(409, 'Ez a játék már elkezdődött');
+    if (lobby.players.length >= playerCount(lobby.settings.mode)) throw new HttpError(409, 'A szoba megtelt');
     if (lobby.players.some((p) => p.name.toLowerCase() === name.toLowerCase())) {
-      throw new HttpError(409, 'Someone in the lobby already uses that name');
+      throw new HttpError(409, 'Valaki már ezt a nevet használja a szobában');
     }
 
     const player: LobbyPlayer = { id: newId(), token: newToken(), name, bot: false };
@@ -254,7 +254,7 @@ async function mutate(
 }
 
 const requireWaiting = (lobby: Lobby) => {
-  if (lobby.phase !== 'waiting') throw new HttpError(409, 'The game has already started');
+  if (lobby.phase !== 'waiting') throw new HttpError(409, 'A játék már elkezdődött');
 };
 
 export const updateSettings = (store: Store, input: { code?: unknown; token?: unknown; settings?: Partial<Settings> }) =>
@@ -263,7 +263,7 @@ export const updateSettings = (store: Store, input: { code?: unknown; token?: un
     requireWaiting(lobby);
     const settings = cleanSettings(input.settings, lobby.settings);
     if (lobby.players.length > playerCount(settings.mode)) {
-      throw new HttpError(409, 'There are more players than seats in that mode');
+      throw new HttpError(409, 'Többen vagytok, mint ahány hely van ebben a módban');
     }
     lobby.settings = settings;
   });
@@ -272,7 +272,7 @@ export const addBot = (store: Store, input: { code?: unknown; token?: unknown })
   mutate(store, input, (lobby, player) => {
     requireHost(lobby, player);
     requireWaiting(lobby);
-    if (lobby.players.length >= playerCount(lobby.settings.mode)) throw new HttpError(409, 'The lobby is full');
+    if (lobby.players.length >= playerCount(lobby.settings.mode)) throw new HttpError(409, 'A szoba megtelt');
     const taken = new Set(lobby.players.map((p) => p.name));
     let n = 1;
     while (taken.has(`Bot ${n}`)) n++;
@@ -284,8 +284,8 @@ export const removePlayer = (store: Store, input: { code?: unknown; token?: unkn
     requireHost(lobby, player);
     requireWaiting(lobby);
     const target = lobby.players.find((p) => p.id === input.playerId);
-    if (!target) throw new HttpError(404, 'No such player');
-    if (target.id === lobby.hostId) throw new HttpError(400, 'The host cannot be removed');
+    if (!target) throw new HttpError(404, 'Nincs ilyen játékos');
+    if (target.id === lobby.hostId) throw new HttpError(400, 'A gazdát nem lehet eltávolítani');
     lobby.players = lobby.players.filter((p) => p.id !== target.id);
   });
 
@@ -295,7 +295,7 @@ export const startGame = (store: Store, input: { code?: unknown; token?: unknown
     requireWaiting(lobby);
     const needed = playerCount(lobby.settings.mode);
     if (lobby.players.length !== needed) {
-      throw new HttpError(409, `Waiting for ${needed - lobby.players.length} more player(s)`);
+      throw new HttpError(409, `Még ${needed - lobby.players.length} játékos hiányzik`);
     }
     lobby.phase = 'playing';
     lobby.match = newMatch(lobby.settings, rng, Math.floor(rng() * needed));
@@ -306,14 +306,14 @@ export const startGame = (store: Store, input: { code?: unknown; token?: unknown
 
 export const playMove = (store: Store, input: { code?: unknown; token?: unknown; move?: unknown }, rng: Rng = secureRng) =>
   mutate(store, input, (lobby, player) => {
-    if (lobby.phase !== 'playing' || !lobby.match) throw new HttpError(409, 'The game has not started');
+    if (lobby.phase !== 'playing' || !lobby.match) throw new HttpError(409, 'A játék még nem kezdődött el');
     const raw = input.move as Move | undefined;
-    if (!raw || typeof raw !== 'object') throw new HttpError(400, 'Missing move');
+    if (!raw || typeof raw !== 'object') throw new HttpError(400, 'Hiányzó lépés');
     const move = { ...raw, seat: lobby.players.indexOf(player) } as Move;
     try {
       lobby.match = applyMatchMove(lobby.match, move);
     } catch {
-      throw new HttpError(409, 'That move is not allowed right now');
+      throw new HttpError(409, 'Ez a lépés most nem megengedett');
     }
     lobby.timeouts[move.seat] = 0;
     runBots(lobby, rng);
@@ -327,11 +327,11 @@ export const startNextHand = (
 ) =>
   mutate(store, input, (lobby) => {
     const match = lobby.match;
-    if (!match) throw new HttpError(409, 'The game has not started');
+    if (!match) throw new HttpError(409, 'A játék még nem kezdődött el');
     // Several players may press the button at once: only the first press counts.
     if (match.handNumber !== Number(input.handNumber)) return;
-    if (match.winners) throw new HttpError(409, 'The match is over');
-    if (match.hand.phase !== 'ended') throw new HttpError(409, 'The hand is still running');
+    if (match.winners) throw new HttpError(409, 'A mérkőzés véget ért');
+    if (match.hand.phase !== 'ended') throw new HttpError(409, 'A leosztás még tart');
     lobby.match = nextHand(match, rng);
     runBots(lobby, rng);
     armTimer(lobby);
@@ -340,7 +340,7 @@ export const startNextHand = (
 export const rematch = (store: Store, input: { code?: unknown; token?: unknown }, rng: Rng = secureRng) =>
   mutate(store, input, (lobby, player) => {
     requireHost(lobby, player);
-    if (!lobby.match?.winners) throw new HttpError(409, 'The match is not over yet');
+    if (!lobby.match?.winners) throw new HttpError(409, 'A mérkőzés még nem ért véget');
     const needed = playerCount(lobby.settings.mode);
     lobby.match = newMatch(lobby.settings, rng, Math.floor(rng() * needed));
     lobby.timeouts = [];

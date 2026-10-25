@@ -103,7 +103,7 @@ export class UpstashStore implements Store {
     for (;;) {
       const got = await this.redis.set(lockKey, owner, { nx: true, px: 5000 });
       if (got === 'OK') break;
-      if (Date.now() > deadline) throw new Error('Lobby is busy, try again');
+      if (Date.now() > deadline) throw new Error('A szoba foglalt, próbáld újra');
       await new Promise((r) => setTimeout(r, 40 + Math.random() * 60));
     }
     try {

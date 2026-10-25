@@ -67,7 +67,7 @@ An illegal card is not allowed by the game. The engine only offers legal cards.
 - Deal 3 cards each, turn up the next card as the adu card, deal 2 more each. Place the remaining cards (talon) face down on it, with the adu card visible.
 - The non-dealer leads; the winner of each trick draws first.
 - **Alsó swap:** on your lead you may swap your adu Alsó for the face-up adu card, while the talon holds at least 3 cards.
-- **Pairs (20/40):** on your lead, Király + Felső of the same suit: 20 points (40 in adu). Points count only after you have won a trick. This exists **only in 1v1**.
+- **Pairs (20/40):** on your lead, Király + Felső of the same suit: 20 points (40 in adu). Points count only after you have won a trick. Pairs work in **every mode** (2v1 and 2v2 too), on any lead.
 - **Cover (betakar):** on your lead you may turn the adu card face down. No more drawing; strict play (section 5) starts. The coverer must reach 66 with the cards in hand. **[ASSUMED]** If the coverer fails, the opponent wins the hand and scores by section 4 using the coverer's card points.
 - Last trick winner wins the hand if nobody reaches 66.
 
@@ -75,7 +75,7 @@ An illegal card is not allowed by the game. The engine only offers legal cards.
 - Deal 4 cards to each player. The player who receives cards first (the caller) names the adu suit from those 4 cards. Then deal 4 more to each.
 - The caller plays alone against the two others and leads the first trick.
 - The caller rotates clockwise each hand. **[ASSUMED]**
-- No folding, no pairs, no talon.
+- No talon. Pairs (20/40) work as in 1v1. After the caller declares, the two opponents answer in turn: **Kontra** or **Játék** (play), see section 7.
 
 ### 6.3 2v2 (four players)
 - Deal 3 cards to each player. The caller (first to receive cards) names a specific card, for example "Tök Ász". The **suit of that card becomes the adu**. Then deal 3 more to each.
@@ -83,13 +83,15 @@ An illegal card is not allowed by the game. The engine only offers legal cards.
 - The caller may call a card he holds himself; then the caller plays alone against the other three (1v3).
 - **[ASSUMED]** The caller names the card after seeing only his first 3 cards, before the second round is dealt.
 - The caller leads; the caller rotates clockwise each hand.
-- No pairs, no talon.
+- No talon. Pairs (20/40) work as in 1v1. After the caller declares, the three others answer in turn: **Kontra** or **Játék** (play), see section 7.
 
-## 7. Declarations (Snapszer and durkó)
+## 7. Declarations, forfeit and kontra (the game calls durkó "Durch")
 
 - Before the first card is played the caller may declare **Snapszer** (the side must reach 66 before the opponents win any trick) or **durkó** (the side must win every trick).
 - In 1v1 either player may declare Snapszer. In 2v1 only the caller. **[ASSUMED]** In 2v2 only the caller.
-- Snapszer cannot be combined with durkó. **[ASSUMED]**
+- Snapszer cannot be combined with durkó (Durch). **[ASSUMED]**
+- **Forfeit (Feladom):** in 2v1 and 2v2 the caller may give up the hand at any time before the first card is played (while choosing the adutt, naming the card, or declaring). Every other player goes down **6**, partner or not. There is no forfeit in 1v1.
+- **Kontra:** in 2v1 and 2v2, once the caller has declared, the other players answer one after another with **Kontra** or **Játék**. The first Kontra ends the question and **doubles** whatever the hand scores (2 becomes 4, Snapszer 12 becomes 24, and so on). A kontra does not apply to a forfeit. There is no kontra in 1v1. **[ASSUMED]**
 
 ## 8. Reaching 66
 

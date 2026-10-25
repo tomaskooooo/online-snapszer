@@ -10,13 +10,13 @@ export function Home({ onCreate, onJoin }: { onCreate: () => void; onJoin: () =>
       <h1 className="logo">
         Snapszer <span>online</span>
       </h1>
-      <p className="lead">Play the Hungarian card game with friends. No account needed.</p>
+      <p className="lead">Játszd a magyar kártyajátékot a barátaiddal, regisztráció nélkül.</p>
       <div className="stack">
         <button className="btn primary big" onClick={onCreate}>
-          Create lobby
+          Szoba létrehozása
         </button>
         <button className="btn big" onClick={onJoin}>
-          Join with code
+          Csatlakozás kóddal
         </button>
       </div>
     </main>
@@ -50,20 +50,20 @@ export function CreateForm({ onBack, onDone }: { onBack: () => void; onDone: (co
   return (
     <main className="page">
       <form className="panel" onSubmit={submit}>
-        <h2>Create lobby</h2>
+        <h2>Szoba létrehozása</h2>
         <label className="field">
-          <span>Your name</span>
+          <span>A neved</span>
           <input value={name} onChange={(e) => setName(e.target.value)} maxLength={20} autoFocus autoComplete="nickname" required />
         </label>
 
         <fieldset className="field">
-          <legend>Game mode</legend>
+          <legend>Játékmód</legend>
           <div className="choices">
             {(Object.keys(MODE_INFO) as Mode[]).map((m) => (
               <label key={m} className={`choice ${mode === m ? 'on' : ''}`}>
                 <input type="radio" name="mode" checked={mode === m} onChange={() => setMode(m)} />
                 <strong>{MODE_INFO[m].title}</strong>
-                <small>{MODE_INFO[m].players} players</small>
+                <small>{MODE_INFO[m].players} játékos</small>
                 <em>{MODE_INFO[m].blurb}</em>
               </label>
             ))}
@@ -71,7 +71,7 @@ export function CreateForm({ onBack, onDone }: { onBack: () => void; onDone: (co
         </fieldset>
 
         <fieldset className="field">
-          <legend>Everyone counts down from</legend>
+          <legend>Ennyiről számolunk vissza nullára</legend>
           <div className="segmented">
             {SCORES.map((s) => (
               <label key={s} className={startScore === s ? 'on' : ''}>
@@ -84,16 +84,16 @@ export function CreateForm({ onBack, onDone }: { onBack: () => void; onDone: (co
 
         <label className="switch">
           <input type="checkbox" checked={showPoints} onChange={(e) => setShowPoints(e.target.checked)} />
-          <span>Show card point counts during the game</span>
+          <span>Kártyapontok mutatása játék közben</span>
         </label>
 
         {error && <p className="error">{error}</p>}
         <div className="row">
           <button type="button" className="btn" onClick={onBack}>
-            Back
+            Vissza
           </button>
           <button className="btn primary" disabled={busy}>
-            {busy ? 'Creating…' : 'Create lobby'}
+            {busy ? 'Létrehozás…' : 'Szoba létrehozása'}
           </button>
         </div>
       </form>
@@ -124,9 +124,9 @@ export function JoinForm({ initialCode, onBack, onDone }: { initialCode: string;
   return (
     <main className="page">
       <form className="panel" onSubmit={submit}>
-        <h2>Join with code</h2>
+        <h2>Csatlakozás kóddal</h2>
         <label className="field">
-          <span>Lobby code</span>
+          <span>A szoba kódja</span>
           <input
             className="code-input"
             value={code}
@@ -140,16 +140,16 @@ export function JoinForm({ initialCode, onBack, onDone }: { initialCode: string;
           />
         </label>
         <label className="field">
-          <span>Your name</span>
+          <span>A neved</span>
           <input value={name} onChange={(e) => setName(e.target.value)} maxLength={20} autoFocus={!!initialCode} autoComplete="nickname" required />
         </label>
         {error && <p className="error">{error}</p>}
         <div className="row">
           <button type="button" className="btn" onClick={onBack}>
-            Back
+            Vissza
           </button>
           <button className="btn primary" disabled={busy || code.length < 4}>
-            {busy ? 'Joining…' : 'Join'}
+            {busy ? 'Csatlakozás…' : 'Csatlakozás'}
           </button>
         </div>
       </form>

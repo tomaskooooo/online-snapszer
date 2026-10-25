@@ -19,7 +19,7 @@ async function call<T>(path: string, init?: { body?: unknown; method?: string })
       cache: 'no-store',
     });
   } catch {
-    throw new ApiError(0, 'Cannot reach the server');
+    throw new ApiError(0, 'A szerver nem érhető el');
   }
   let data: unknown = null;
   try {
@@ -28,7 +28,7 @@ async function call<T>(path: string, init?: { body?: unknown; method?: string })
     // fall through with null
   }
   if (!res.ok) {
-    const message = (data as { error?: string } | null)?.error ?? `Request failed (${res.status})`;
+    const message = (data as { error?: string } | null)?.error ?? `A kérés sikertelen (${res.status})`;
     throw new ApiError(res.status, message);
   }
   return data as T;

@@ -76,7 +76,7 @@ function Room({ code, session, onExit, onLost }: { code: string; session: Sessio
 
   const leave = async () => {
     const playing = view?.phase === 'playing';
-    if (playing && !window.confirm('Leave the game? You can come back with the same link on this device.')) return;
+    if (playing && !window.confirm('Kilépsz a játékból? Ezen az eszközön ugyanazzal a linkkel visszatérhetsz.')) return;
     if (!playing) {
       try {
         await api.leave(auth);
@@ -91,7 +91,7 @@ function Room({ code, session, onExit, onLost }: { code: string; session: Sessio
   if (!view) {
     return (
       <main className="page center">
-        <p className="muted">{offline ? 'Cannot reach the server…' : 'Loading lobby…'}</p>
+        <p className="muted">{offline ? 'A szerver nem érhető el…' : 'Szoba betöltése…'}</p>
       </main>
     );
   }
@@ -126,7 +126,7 @@ function Room({ code, session, onExit, onLost }: { code: string; session: Sessio
       )}
       {(toast || offline) && (
         <div className="toast" role="status">
-          {toast || 'Connection problem, retrying…'}
+          {toast || 'Kapcsolati hiba, újrapróbálkozás…'}
         </div>
       )}
     </>

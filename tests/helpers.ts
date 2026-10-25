@@ -99,12 +99,18 @@ export function playRandomHand(
     }
     if (!move) {
       const seat = actors.find((s) => legalMoves(h, s).some((m) => m.type !== 'claim'))!;
-      const moves = legalMoves(h, seat).filter((m) => m.type !== 'claim');
-      if (h.phase === 'declare') {
+      const all = legalMoves(h, seat).filter((m) => m.type !== 'claim');
+      const forfeit = all.find((m) => m.type === 'forfeit');
+      const moves = all.filter((m) => m.type !== 'forfeit');
+      if (forfeit && rng() < 0.03) {
+        move = forfeit;
+      } else if (h.phase === 'declare') {
         const roll = rng();
         const chance = opts.declareChance ?? 0.1;
         const kind = roll < chance / 2 ? 'snapszer' : roll < chance ? 'durko' : 'none';
         move = { type: 'declare', seat, kind };
+      } else if (h.phase === 'kontra') {
+        move = { type: 'kontra', seat, kontra: rng() < 0.3 };
       } else if (h.phase === 'callCard' || h.phase === 'callTrump') {
         move = moves[Math.floor(rng() * moves.length)]!;
       } else {

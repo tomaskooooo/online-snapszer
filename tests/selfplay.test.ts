@@ -3,7 +3,7 @@ import { cardPoints, mulberry32, startHand, type Mode, type ResultReason } from 
 import { checkConservation, playRandomHand } from './helpers';
 
 const TRICKS: Record<Mode, number> = { '1v1': 10, '2v1': 8, '2v2': 6 };
-const AMOUNTS = new Set([2, 4, 6, 12, 22, 32]);
+const AMOUNTS = new Set([2, 4, 6, 12, 22, 32, 4, 8, 24, 44, 64]);
 
 describe.each<Mode>(['1v1', '2v1', '2v2'])('random full games: %s', (mode) => {
   const reasons = new Set<ResultReason>();
@@ -34,12 +34,12 @@ describe.each<Mode>(['1v1', '2v1', '2v2'])('random full games: %s', (mode) => {
         }
       }
       if (r.reason === 'snapszerFailed' || r.reason === 'durkoFailed') {
-        expect(r.amount).toBe(r.reason === 'durkoFailed' ? 32 : 12);
+        expect(r.amount / (r.kontra ? 2 : 1)).toBe(r.reason === 'durkoFailed' ? 32 : 12);
         expect(r.winnerSide).not.toBe(end.declaration!.side);
       }
-      if (r.reason === 'snapszerWon') expect(r.amount).toBe(12);
-      if (r.reason === 'allTricks') expect(r.amount).toBe(22);
-      if (r.reason === 'durkoWon') expect(r.amount).toBe(32);
+      if (r.reason === 'snapszerWon') expect(r.amount / (r.kontra ? 2 : 1)).toBe(12);
+      if (r.reason === 'allTricks') expect(r.amount / (r.kontra ? 2 : 1)).toBe(22);
+      if (r.reason === 'durkoWon') expect(r.amount / (r.kontra ? 2 : 1)).toBe(32);
     }
   });
 
@@ -54,5 +54,6 @@ describe.each<Mode>(['1v1', '2v1', '2v2'])('random full games: %s', (mode) => {
       expect(reasons, `no ${expected} seen in ${mode}`).toContain(expected);
     }
     if (mode === '1v1') expect(reasons).toContain('coverFailed');
+    else expect(reasons).toContain('forfeit');
   });
 });

@@ -30,10 +30,10 @@ export async function handleApi(store: Store, req: ApiRequest): Promise<ApiRespo
   const body = (req.body && typeof req.body === 'object' ? req.body : {}) as Record<string, unknown>;
   try {
     if (req.action === 'state') {
-      if (req.method !== 'GET') throw new HttpError(405, 'Use GET');
+      if (req.method !== 'GET') throw new HttpError(405, 'Ehhez GET kérés kell');
       return { status: 200, body: await getState(store, req.query) };
     }
-    if (req.method !== 'POST') throw new HttpError(405, 'Use POST');
+    if (req.method !== 'POST') throw new HttpError(405, 'Ehhez POST kérés kell');
 
     switch (req.action) {
       case 'create':
@@ -57,11 +57,11 @@ export async function handleApi(store: Store, req: ApiRequest): Promise<ApiRespo
       case 'leave':
         return { status: 200, body: await leaveLobby(store, body) };
       default:
-        throw new HttpError(404, 'Unknown action');
+        throw new HttpError(404, 'Ismeretlen művelet');
     }
   } catch (err) {
     if (err instanceof HttpError) return { status: err.status, body: { error: err.message } };
     console.error(err);
-    return { status: 500, body: { error: 'Something went wrong on the server' } };
+    return { status: 500, body: { error: 'Hiba történt a szerveren' } };
   }
 }

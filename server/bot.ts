@@ -35,6 +35,8 @@ export function botMove(h: HandState, seat: number, rng: Rng, allowClaim = true)
     }
     case 'declare':
       return moves.find((m) => m.type === 'declare' && m.kind === 'none') ?? moves[0]!;
+    case 'kontra':
+      return moves.find((m) => m.type === 'kontra' && !m.kontra) ?? moves[0]!;
     default: {
       const swap = moves.find((m) => m.type === 'swapTrump');
       if (swap) return swap;
