@@ -222,7 +222,7 @@ export function Table({ view, busy, run, actions, onLeave }: Props) {
           <div className="chips">
             {hand.trumpSuit && (
               <span className={`chip adu s-${hand.trumpSuit}`}>
-                Adutt: <SuitIcon suit={hand.trumpSuit} size={24} /> <b>{SUIT_NAME[hand.trumpSuit]}</b>
+                Adutt: <SuitIcon suit={hand.trumpSuit} size={38} /> <b>{SUIT_NAME[hand.trumpSuit]}</b>
               </span>
             )}
             {decl && (
@@ -241,6 +241,7 @@ export function Table({ view, busy, run, actions, onLeave }: Props) {
 
           <div className={`table-top drop-${dragState}`} data-dropzone="table">
             <TableArt />
+            {hand.trumpSuit && <SuitIcon suit={hand.trumpSuit} size="46%" className="table-adu" />}
             <div className={`trick ${showingLast ? 'last' : ''}`}>
             {trickCards.map((p) => (
               <div key={`${p.seat}-${cardId(p.card)}`} className={`slot pos-${pos(p.seat)} ${showingLast && p.seat === lastWinner ? 'won' : ''}`} style={{ gridArea: pos(p.seat) }}>
