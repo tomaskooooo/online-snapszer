@@ -36,7 +36,7 @@ export interface HandView {
   declaration: Declaration | null;
   /** Seat that called kontra (double points), or null. */
   kontra: number | null;
-  lastMeld: { seat: number; suit: Suit; points: number } | null;
+  lastMeld: { seat: number; suit: Suit; points: number; trick: number } | null;
   claimAvailable: boolean;
   legalMoves: Move[];
   result: HandResult | null;

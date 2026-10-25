@@ -459,7 +459,7 @@ describe('1v1 specials', () => {
     h = play(h, 0, 'Kz', true);
     expect(h.pendingMeld[0]).toBe(20);
     expect(h.points[0]).toBe(0);
-    expect(h.lastMeld).toEqual({ seat: 0, suit: 'zold', points: 20 });
+    expect(h.lastMeld).toEqual({ seat: 0, suit: 'zold', points: 20, trick: 0 });
     h = play(h, 1, '9z');
     expect(h.points[0]).toBe(4 + 20);
     expect(h.pendingMeld[0]).toBe(0);
@@ -501,7 +501,7 @@ describe('1v1 specials', () => {
   it('pairs score 20, or 40 in adutt, in a three player hand too', () => {
     let h = scenario({ mode: '2v1', hands: ['Kz Fz 9m', '9z Am 9p', 'Um Ap Up'], trump: 'tok' });
     h = play(h, 0, 'Fz', true);
-    expect(h.lastMeld).toEqual({ seat: 0, suit: 'zold', points: 20 });
+    expect(h.lastMeld).toEqual({ seat: 0, suit: 'zold', points: 20, trick: 0 });
     h = play(play(h, 1, '9z'), 2, 'Um');
     expect(h.points[0]).toBe(5 + 20);
 

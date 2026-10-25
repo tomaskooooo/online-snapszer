@@ -455,7 +455,7 @@ export function applyMove(prev: HandState, move: Move): HandState {
       h.trick.push({ seat, card: move.card });
       if (move.meld) {
         const points = move.card.suit === h.trumpSuit ? 40 : 20;
-        h.lastMeld = { seat, suit: move.card.suit, points };
+        h.lastMeld = { seat, suit: move.card.suit, points, trick: h.tricksPlayed };
         if (h.tricksWon[seat]! > 0) h.points[seat]! += points;
         else h.pendingMeld[seat]! += points;
         h.claimWindow = seat;

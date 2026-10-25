@@ -1024,3 +1024,97 @@ button.card.playable:hover {
     --hand-max: 62px;
   }
 }
+
+/* ---- "húszat / negyvenet hívott!" celebration -------------------------- */
+.meld-fx {
+  position: fixed;
+  inset: 0;
+  z-index: 35;
+  pointer-events: none;
+  display: grid;
+  place-items: center;
+  background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.55), transparent 70%);
+  animation: fx-out 0.5s ease 2.9s forwards;
+}
+.confetti {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+.confetti i {
+  position: absolute;
+  top: -6vh;
+  left: var(--x);
+  background: var(--c);
+  border-radius: 2px;
+  opacity: 0;
+  animation: confetti-fall var(--d) cubic-bezier(0.3, 0.6, 0.5, 1) var(--delay) forwards;
+}
+.meld-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 22px 40px;
+  border-radius: 24px;
+  background: rgba(10, 36, 24, 0.92);
+  border: 2px solid var(--accent);
+  box-shadow: 0 0 60px rgba(242, 184, 75, 0.5);
+  text-align: center;
+  animation: meld-pop 0.55s cubic-bezier(0.2, 1.5, 0.4, 1) both;
+}
+.meld-fx.forty .meld-card {
+  border-color: #ff7b72;
+  box-shadow: 0 0 90px rgba(255, 123, 114, 0.65);
+}
+.meld-num {
+  font-size: clamp(4.5rem, 20vw, 8rem);
+  font-weight: 900;
+  line-height: 1;
+  color: var(--accent);
+  text-shadow: 0 4px 0 rgba(0, 0, 0, 0.35);
+}
+.meld-fx.forty .meld-num {
+  color: #ff9a92;
+}
+.meld-card p {
+  font-size: clamp(1.4rem, 5.5vw, 2.4rem);
+  font-weight: 800;
+}
+.meld-who {
+  font-size: clamp(1.1rem, 4vw, 1.6rem);
+  color: var(--muted);
+}
+@keyframes confetti-fall {
+  0% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) rotate(0);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(var(--dx), 108vh, 0) rotate(var(--r));
+  }
+}
+@keyframes meld-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.3) rotate(-6deg);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) rotate(0);
+  }
+}
+@keyframes fx-out {
+  to {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .confetti {
+    display: none;
+  }
+  .meld-card {
+    animation: none;
+  }
+}

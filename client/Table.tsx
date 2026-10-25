@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { cardId, cardPoints, currentWinner, sameCard, type Card, type LobbyView, type Move, type Suit } from '../src';
 import { CardBack, CardFace, SuitIcon, cardLabel } from './Card';
 import { REASON_TEXT, SUIT_NAME, tricksText } from './labels';
@@ -30,6 +30,21 @@ export function Table({ view, busy, run, actions, onLeave }: Props) {
   const [showTricks, setShowTricks] = useState(false);
   const [showRules, setShowRules] = useState(false);
   const secondsLeft = useCountdown(view.turnDeadline, view.serverTime);
+
+  // A freshly declared 20 or 40 gets a full-screen celebration for everybody at the table.
+  const meld = hand.lastMeld;
+  const meldKey = meld ? `${match.handNumber}:${meld.trick}` : null;
+  const seenMeld = useRef<string | null | undefined>(undefined);
+  const [celebration, setCelebration] = useState<NonNullable<typeof meld> | null>(null);
+  useEffect(() => {
+    // The first render only records what is already there, so a reload does not replay old news.
+    const isNew = seenMeld.current !== undefined && meldKey !== null && meldKey !== seenMeld.current;
+    seenMeld.current = meldKey;
+    if (!isNew || !meld) return;
+    setCelebration(meld);
+    const timer = setTimeout(() => setCelebration(null), 3400);
+    return () => clearTimeout(timer);
+  }, [meldKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const name = (seat: number) => players[seat]?.name ?? '?';
   const pos = (seat: number): Pos => {
@@ -397,9 +412,58 @@ export function Table({ view, busy, run, actions, onLeave }: Props) {
         </Modal>
       )}
 
+      {celebration && (
+        <MeldCelebration
+          key={`${match.handNumber}:${celebration.trick}`}
+          points={celebration.points}
+          suit={celebration.suit}
+          text={`${celebration.points === 40 ? 'Negyvenet' : 'Húszat'} ${celebration.seat === me ? 'hívtál' : 'hívott'}!`}
+          who={celebration.seat === me ? null : name(celebration.seat)}
+        />
+      )}
+
       {showRules && <RulesModal onClose={() => setShowRules(false)} />}
 
       {hand.phase === 'ended' && <HandEnd view={view} busy={busy} run={run} actions={actions} onLeave={onLeave} />}
+    </div>
+  );
+}
+
+const CONFETTI_COLORS = ['#f2b84b', '#e5484d', '#3fb950', '#58a6ff', '#d2a8ff', '#ffffff'];
+
+/** Full-screen "húszat hívott!" burst. It ignores clicks, so the game underneath stays usable. */
+function MeldCelebration({ points, suit, text, who }: { points: number; suit: Suit; text: string; who: string | null }) {
+  const pieces = useMemo(
+    () =>
+      Array.from({ length: points === 40 ? 150 : 80 }, (_, i) => ({
+        id: i,
+        style: {
+          '--x': `${Math.random() * 100}vw`,
+          '--dx': `${(Math.random() - 0.5) * 30}vw`,
+          '--r': `${360 + Math.random() * 720}deg`,
+          '--d': `${2.2 + Math.random() * 1.6}s`,
+          '--delay': `${Math.random() * 0.7}s`,
+          '--c': CONFETTI_COLORS[i % CONFETTI_COLORS.length],
+          width: `${7 + Math.random() * 8}px`,
+          height: `${10 + Math.random() * 10}px`,
+        } as React.CSSProperties,
+      })),
+    [points],
+  );
+
+  return (
+    <div className={`meld-fx ${points === 40 ? 'forty' : ''}`} role="status" aria-live="assertive">
+      <div className="confetti" aria-hidden>
+        {pieces.map((p) => (
+          <i key={p.id} style={p.style} />
+        ))}
+      </div>
+      <div className="meld-card">
+        <span className="meld-num">{points}</span>
+        <SuitIcon suit={suit} size={46} />
+        {who && <b className="meld-who">{who}</b>}
+        <p>{text}</p>
+      </div>
     </div>
   );
 }

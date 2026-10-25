@@ -91,7 +91,7 @@ export interface HandState {
   claimWindow: number | null;
   lastTrickWinner: number | null;
   lastTrick: Play[] | null;
-  lastMeld: { seat: number; suit: Suit; points: number } | null;
+  lastMeld: { seat: number; suit: Suit; points: number; trick: number } | null;
   result: HandResult | null;
 }
 
