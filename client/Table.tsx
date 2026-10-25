@@ -122,10 +122,7 @@ export function Table({ view, busy, run, actions, onLeave }: Props) {
   if (hand.phase === 'callTrump') {
     status = hand.caller === me ? 'Te vagy a hívó: válaszd ki az aduttot.' : `${name(hand.caller)} aduttot választ…`;
   } else if (hand.phase === 'callCard') {
-    status =
-      hand.caller === me
-        ? 'Te vagy a hívó: nevezz meg egy lapot. A színe lesz az adutt, akinél az van, az a titkos társad.'
-        : `${name(hand.caller)} lapot nevez meg…`;
+    status = hand.caller === me ? '' : `${name(hand.caller)} lapot nevez meg…`;
   } else if (hand.phase === 'declare') {
     status = hand.turn === me ? 'Bemondhatsz Snapszert vagy Durchot, vagy kezdődhet a játék.' : `${name(hand.turn)} dönt a bemondásról…`;
   } else if (hand.phase === 'kontra') {
@@ -315,6 +312,13 @@ export function Table({ view, busy, run, actions, onLeave }: Props) {
           )}
         </div>
 
+        {hand.phase === 'callCard' && hand.caller === me ? (
+          <div className="call-panel">
+            <p className="call-title">Nevezz meg egy lapot</p>
+            <p className="call-help">A színe lesz az adutt. Akinél az a lap van, az a titkos társad; ha a sajátodat nevezed meg, egyedül játszol.</p>
+            <CardPicker moves={legal} busy={busy} onPick={send} />
+          </div>
+        ) : (
         <div className={`table-top drop-${dragState}`} data-dropzone="table">
           {hand.trumpSuit && <SuitIcon suit={hand.trumpSuit} size="46%" className="table-adu" />}
           <div className={`trick ${showingLast ? 'last' : ''}`}>
@@ -330,6 +334,7 @@ export function Table({ view, busy, run, actions, onLeave }: Props) {
             <p className="caption">{lastWinner === me ? 'Te viszed' : `${name(lastWinner)} viszi`} az ütést</p>
           )}
         </div>
+        )}
 
         {!showingLast && hand.lastTrick && hand.lastTrick.length > 0 && (
           <div className="last-row">
@@ -343,9 +348,11 @@ export function Table({ view, busy, run, actions, onLeave }: Props) {
 
       <section className="dock">
         {role && <p className="role">{role}</p>}
-        <p className="status" aria-live="polite">
-          {status}
-        </p>
+        {status && (
+          <p className="status" aria-live="polite">
+            {status}
+          </p>
+        )}
 
         {hand.phase === 'callTrump' && hand.caller === me && (
           <div className="actions">
@@ -364,7 +371,6 @@ export function Table({ view, busy, run, actions, onLeave }: Props) {
 
         {hand.phase === 'callCard' && hand.caller === me && (
           <>
-            <CardPicker moves={legal} busy={busy} onPick={send} />
             {forfeit && (
               <div className="actions">
                 <button className="btn danger" disabled={busy} onClick={askForfeit}>
@@ -613,16 +619,14 @@ function MeldCelebration({ points, suit, text, who }: { points: number; suit: Su
 }
 
 function CardPicker({ moves, busy, onPick }: { moves: Move[]; busy: boolean; onPick: (m: Move) => void }) {
-  const calls = moves.filter((m): m is Extract<Move, { type: 'callCard' }> => m.type === 'callCard');
-  const suits = [...new Set(calls.map((m) => m.card.suit))] as Suit[];
+  const suits: Suit[] = ['tok', 'zold', 'piros', 'makk'];
+  const calls = moves
+    .filter((m): m is Extract<Move, { type: 'callCard' }> => m.type === 'callCard')
+    .sort((x, y) => suits.indexOf(x.card.suit) - suits.indexOf(y.card.suit) || rankIndex(y.card) - rankIndex(x.card));
   return (
     <div className="picker">
-      {suits.map((suit) => (
-        <div key={suit} className="picker-row">
-          {calls.filter((m) => m.card.suit === suit).map((m) => (
-            <CardFace key={cardId(m.card)} card={m.card} size="tiny" onClick={busy ? undefined : () => onPick(m)} />
-          ))}
-        </div>
+      {calls.map((m) => (
+        <CardFace key={cardId(m.card)} card={m.card} size="tiny" onClick={busy ? undefined : () => onPick(m)} />
       ))}
     </div>
   );
