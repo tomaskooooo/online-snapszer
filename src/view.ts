@@ -38,6 +38,8 @@ export interface HandView {
   claimAvailable: boolean;
   legalMoves: Move[];
   result: HandResult | null;
+  /** Final card points per seat, shown once the hand is over even when counts were hidden. */
+  finalPoints: number[] | null;
   /** Filled in only when the hand is over. */
   revealed: { hands: Card[][]; sides: number[] } | null;
 }
@@ -77,6 +79,7 @@ export function viewFor(match: MatchState, seat: number): MatchView {
     claimAvailable: h.phase === 'play' && h.claimWindow === seat && h.declaration?.kind !== 'durko',
     legalMoves: legalMoves(h, seat),
     result: h.result,
+    finalPoints: ended ? h.points : null,
     revealed: ended ? { hands: h.hands, sides: h.sides } : null,
   };
   return {
