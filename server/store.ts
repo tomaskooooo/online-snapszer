@@ -18,6 +18,10 @@ export interface Lobby {
   /** During a match the index in this list is the seat. */
   players: LobbyPlayer[];
   match: MatchState | null;
+  /** When the player whose turn it is runs out of time (ms since epoch), or null. */
+  deadline: number | null;
+  /** Consecutive timeouts per seat, reset by a move the player makes themselves. */
+  timeouts: number[];
 }
 
 export interface Store {

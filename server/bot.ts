@@ -5,12 +5,12 @@ import type { HandState, Move, Suit } from '../src/types';
  * A simple player for empty seats. It plays legal cards at random, takes obvious
  * pair and swap chances, and only presses "Kész!" when it really has 66.
  */
-export function botMove(h: HandState, seat: number, rng: Rng): Move | null {
+export function botMove(h: HandState, seat: number, rng: Rng, allowClaim = true): Move | null {
   const legal = legalMoves(h, seat);
   if (legal.length === 0) return null;
 
   const claim = legal.find((m) => m.type === 'claim');
-  if (claim && sideStats(h, h.sides[seat]!).points >= 66) return claim;
+  if (allowClaim && claim && sideStats(h, h.sides[seat]!).points >= 66) return claim;
 
   const moves = legal.filter((m) => m.type !== 'claim');
   if (moves.length === 0) return null;

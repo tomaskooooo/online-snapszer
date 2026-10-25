@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { cardId, cardPoints, currentWinner, sameCard, type Card, type LobbyView, type Move, type Suit } from '../src';
 import { CardBack, CardFace, SuitIcon, cardLabel } from './Card';
 import { REASON_TEXT, SUIT_NAME } from './labels';
+import { formatClock, useCountdown } from './useCountdown';
 
 type Pos = 'bottom' | 'left' | 'top' | 'right';
 type PlayMove = Extract<Move, { type: 'play' }>;
@@ -26,6 +27,13 @@ export function Table({ view, busy, run, actions, onLeave }: Props) {
   const me = view.me.seat;
   const [pending, setPending] = useState<Card | null>(null);
   const [showTricks, setShowTricks] = useState(false);
+  const secondsLeft = useCountdown(view.turnDeadline, view.serverTime);
+  const clock = (seat: number) =>
+    hand.turn === seat && hand.phase !== 'ended' && secondsLeft !== null ? (
+      <span className={`clock ${secondsLeft <= 10 ? 'low' : ''}`} role="timer" aria-label={`${secondsLeft} seconds left`}>
+        ⏱ {formatClock(secondsLeft)}
+      </span>
+    ) : null;
 
   const name = (seat: number) => players[seat]?.name ?? '?';
   const pos = (seat: number): Pos => {
@@ -106,6 +114,7 @@ export function Table({ view, busy, run, actions, onLeave }: Props) {
         ))}
       </div>
       <div className="stats">{stats(seat)}</div>
+      {clock(seat)}
     </div>
   );
 
@@ -239,10 +248,14 @@ export function Table({ view, busy, run, actions, onLeave }: Props) {
           </div>
         )}
 
-        <div className={`me-bar ${isMyTurn ? 'turn' : ''}`}>
+        {view.me.missed >= 2 && (
+          <p className="away">You timed out twice, so your moves are being played for you quickly. Make a move to take over again.</p>
+        )}
+        <div className={`me-bar ${hand.turn === me && hand.phase !== 'ended' ? 'turn' : ''}`}>
           <span>
             <b>{name(me)}</b> · {stats(me)}
           </span>
+          {clock(me)}
           <button className="link" onClick={() => setShowTricks(true)}>
             My tricks ({hand.tricksWon[me]})
           </button>

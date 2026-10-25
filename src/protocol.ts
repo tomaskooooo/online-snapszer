@@ -18,8 +18,13 @@ export interface LobbyView {
   settings: Settings;
   players: LobbyPlayerView[];
   needed: number;
-  me: { id: string; seat: number; isHost: boolean };
+  /** `missed` counts the player's consecutive timeouts. */
+  me: { id: string; seat: number; isHost: boolean; missed: number };
   match: MatchView | null;
+  /** When the player on turn runs out of time, in server time (ms). Null when nobody is on the clock. */
+  turnDeadline: number | null;
+  /** Server clock at the moment this view was made, to correct for a wrong clock on the player's device. */
+  serverTime: number;
 }
 
 export interface JoinResponse {

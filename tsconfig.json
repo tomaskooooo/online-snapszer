@@ -8,7 +8,6 @@
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "skipLibCheck": true,
-    "noEmit": true,
     "types": ["node"]
   },
   "include": ["src", "tests", "server", "client", "api", "vite.config.mts", "vitest.config.mts"]

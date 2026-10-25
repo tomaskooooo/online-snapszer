@@ -1,8 +1,11 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { mulberry32, type LobbyView, type Mode, type Move } from '../src';
 import { handleApi } from '../server/http';
 import {
+  AWAY_SECONDS,
+  TURN_SECONDS,
   addBot,
+  clock,
   createLobby,
   getState,
   joinLobby,
@@ -14,7 +17,9 @@ import {
   startNextHand,
   updateSettings,
 } from '../server/lobby';
+import { botMove } from '../server/bot';
 import { MemoryStore } from '../server/store';
+import { scenario } from './helpers';
 
 const make = async (mode: Mode = '1v1', extra: Record<string, unknown> = {}) => {
   const store = new MemoryStore();
@@ -244,5 +249,96 @@ describe('http layer', () => {
     expect((await handleApi(store, { method: 'POST', action: 'nope', query: {}, body: {} })).status).toBe(404);
     const bad = await handleApi(store, { method: 'GET', action: 'state', query: { code, token: 'x' }, body: undefined });
     expect(bad).toEqual({ status: 403, body: { error: 'You are not part of this lobby' } });
+  });
+});
+
+describe('turn clock', () => {
+  let t = 1_000_000;
+  beforeEach(() => {
+    t = 1_000_000;
+    clock.now = () => t;
+  });
+  afterEach(() => {
+    clock.now = () => Date.now();
+  });
+
+  const setup = async (mode: Mode = '1v1', bots = 1) => {
+    const { store, host } = await make(mode);
+    const auth = { code: host.code, token: host.token };
+    for (let i = 0; i < bots; i++) await addBot(store, auth);
+    await startGame(store, auth, mulberry32(21));
+    return { store, host, auth };
+  };
+
+  it('gives the player on turn 60 seconds, measured on the server clock', async () => {
+    const { store, host } = await setup();
+    const view = await peek(store, host.code, host.token);
+    expect(view.match!.hand.turn).toBe(view.me.seat);
+    expect(view.turnDeadline).toBe(t + TURN_SECONDS * 1000);
+    expect(view.serverTime).toBe(t);
+  });
+
+  it('does nothing before the time is up', async () => {
+    const { store, host } = await setup();
+    const before = await peek(store, host.code, host.token);
+    t += (TURN_SECONDS - 1) * 1000;
+    const after = await peek(store, host.code, host.token);
+    expect(after.version).toBe(before.version);
+    expect(after.me.missed).toBe(0);
+  });
+
+  it('plays a move for a player who runs out of time and restarts the clock', async () => {
+    const { store, host } = await setup('2v1', 2);
+    const before = await peek(store, host.code, host.token);
+    t += TURN_SECONDS * 1000 + 1;
+    const after = await peek(store, host.code, host.token);
+    expect(after.version).toBeGreaterThan(before.version);
+    expect(after.me.missed).toBe(1);
+    expect(JSON.stringify(after.match!.hand)).not.toBe(JSON.stringify(before.match!.hand));
+    expect(after.turnDeadline).toBe(t + TURN_SECONDS * 1000);
+  });
+
+  it('a move the player makes resets their timeout count and restarts the clock', async () => {
+    const { store, host, auth } = await setup();
+    t += TURN_SECONDS * 1000 + 1;
+    expect((await peek(store, host.code, host.token)).me.missed).toBe(1);
+    const view = await peek(store, host.code, host.token);
+    const move = view.match!.hand.legalMoves.find((m) => m.type !== 'claim')!;
+    t += 5000;
+    const next = await playMove(store, { ...auth, move });
+    expect(next.view.me.missed).toBe(0);
+    expect(next.view.turnDeadline).toBe(t + TURN_SECONDS * 1000);
+  });
+
+  it('treats a player as away after two timeouts in a row and shortens their clock', async () => {
+    const { store, host } = await setup('2v1', 2);
+    for (let i = 0; i < 2; i++) {
+      t += TURN_SECONDS * 1000 + 1;
+      await peek(store, host.code, host.token);
+    }
+    const view = await peek(store, host.code, host.token);
+    expect(view.me.missed).toBe(2);
+    expect(view.turnDeadline).toBe(t + AWAY_SECONDS * 1000);
+  });
+
+  it('keeps the game moving through a whole hand when nobody plays', async () => {
+    const { store, host } = await setup('1v1');
+    let view = await peek(store, host.code, host.token);
+    for (let i = 0; i < 200 && view.match!.hand.phase !== 'ended'; i++) {
+      t += 61_000;
+      view = await peek(store, host.code, host.token);
+    }
+    expect(view.match!.hand.phase).toBe('ended');
+    expect(view.turnDeadline).toBeNull();
+  });
+
+  it('the move played for an absent player is never a Kész! claim', () => {
+    const h = scenario({ mode: '2v1', hands: ['9m 9p', '9z 9t', 'Um Uz'], trump: 'tok' });
+    h.points = [70, 0, 0];
+    h.tricksWon = [3, 0, 0];
+    h.tricksPlayed = 3;
+    h.claimWindow = 0;
+    expect(botMove(h, 0, mulberry32(1))?.type).toBe('claim');
+    expect(botMove(h, 0, mulberry32(1), false)?.type).toBe('play');
   });
 });

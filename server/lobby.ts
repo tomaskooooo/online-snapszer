@@ -1,6 +1,7 @@
 import { randomBytes, randomInt } from 'node:crypto';
 import {
   applyMatchMove,
+  legalMoves,
   newMatch,
   nextHand,
   playerCount,
@@ -33,6 +34,15 @@ const MAX_NAME = 20;
 
 export const secureRng: Rng = () => randomInt(0, 2 ** 32) / 2 ** 32;
 
+/** Every player has this long for each decision. */
+export const TURN_SECONDS = 60;
+/** After this many timeouts in a row a player is treated as away and gets the short clock. */
+export const AWAY_AFTER = 2;
+export const AWAY_SECONDS = 8;
+
+/** Tests replace `now` to move time forward. */
+export const clock = { now: () => Date.now() };
+
 const newCode = () => Array.from({ length: 4 }, () => CODE_ALPHABET[randomInt(CODE_ALPHABET.length)]!).join('');
 const newToken = () => randomBytes(24).toString('hex');
 const newId = () => randomBytes(6).toString('hex');
@@ -61,6 +71,8 @@ function cleanSettings(raw: Partial<Settings> | undefined, base?: Settings): Set
 async function load(store: Store, code: string): Promise<Lobby> {
   const lobby = await store.get(normalizeCode(code));
   if (!lobby) throw new HttpError(404, 'No lobby with that code');
+  lobby.timeouts ??= [];
+  lobby.deadline ??= null;
   return lobby;
 }
 
@@ -77,6 +89,44 @@ function requireHost(lobby: Lobby, player: LobbyPlayer): void {
 async function save(store: Store, lobby: Lobby): Promise<void> {
   lobby.version++;
   await store.set(lobby.code, lobby);
+}
+
+/** Starts the clock for whoever must move next, if that is a human. */
+export function armTimer(lobby: Lobby): void {
+  const match = lobby.match;
+  lobby.deadline = null;
+  if (!match || match.winners || match.hand.phase === 'ended') return;
+  const seat = match.hand.turn;
+  const player = lobby.players[seat];
+  if (!player || player.bot) return;
+  const away = (lobby.timeouts[seat] ?? 0) >= AWAY_AFTER;
+  lobby.deadline = clock.now() + (away ? AWAY_SECONDS : TURN_SECONDS) * 1000;
+}
+
+/**
+ * Plays a move for a player whose time ran out. Nothing runs in the background on a
+ * serverless host, so this is called whenever someone asks for the lobby state.
+ */
+function applyTimeout(lobby: Lobby, rng: Rng): boolean {
+  if (!lobby.match || lobby.deadline === null || clock.now() < lobby.deadline) return false;
+  const hand = lobby.match.hand;
+  if (hand.phase === 'ended' || lobby.match.winners) return false;
+  const seat = hand.turn;
+  const move = botMove(hand, seat, rng, false) ?? legalMoves(hand, seat).find((m) => m.type !== 'claim');
+  if (!move) return false;
+  lobby.match = applyMatchMove(lobby.match, move);
+  lobby.timeouts[seat] = (lobby.timeouts[seat] ?? 0) + 1;
+  runBots(lobby, rng);
+  armTimer(lobby);
+  return true;
+}
+
+export function enforceTimeout(store: Store, code: string, rng: Rng = secureRng): Promise<void> {
+  return store.withLock(code, async () => {
+    const lobby = await store.get(code);
+    if (!lobby || !applyTimeout(lobby, rng)) return;
+    await save(store, lobby);
+  });
 }
 
 /** Bots play until it is a human's turn (or the hand is over). */
@@ -112,8 +162,10 @@ export function viewOf(lobby: Lobby, player: LobbyPlayer): LobbyView {
       seat: i,
     })),
     needed: playerCount(lobby.settings.mode),
-    me: { id: player.id, seat, isHost: player.id === lobby.hostId },
+    me: { id: player.id, seat, isHost: player.id === lobby.hostId, missed: lobby.timeouts[seat] ?? 0 },
     match: lobby.match ? viewFor(lobby.match, seat) : null,
+    turnDeadline: lobby.deadline,
+    serverTime: clock.now(),
   };
 }
 
@@ -131,7 +183,17 @@ export async function createLobby(
 
   for (let attempt = 0; attempt < 20; attempt++) {
     const code = newCode();
-    const lobby: Lobby = { code, version: 1, hostId: host.id, settings, phase: 'waiting', players: [host], match: null };
+    const lobby: Lobby = {
+      code,
+      version: 1,
+      hostId: host.id,
+      settings,
+      phase: 'waiting',
+      players: [host],
+      match: null,
+      deadline: null,
+      timeouts: [],
+    };
     if (await store.create(code, lobby)) return { code, playerId: host.id, token: host.token };
   }
   throw new HttpError(503, 'Could not find a free lobby code, try again');
@@ -164,7 +226,12 @@ export async function getState(
   store: Store,
   input: { code?: unknown; token?: unknown; v?: unknown },
 ): Promise<{ unchanged: true } | { view: LobbyView }> {
-  const lobby = await load(store, normalizeCode(input.code));
+  const code = normalizeCode(input.code);
+  let lobby = await load(store, code);
+  if (lobby.deadline !== null && clock.now() >= lobby.deadline) {
+    await enforceTimeout(store, code);
+    lobby = await load(store, code);
+  }
   const player = authenticate(lobby, input.token);
   if (input.v !== undefined && Number(input.v) === lobby.version) return { unchanged: true };
   return { view: viewOf(lobby, player) };
@@ -232,7 +299,9 @@ export const startGame = (store: Store, input: { code?: unknown; token?: unknown
     }
     lobby.phase = 'playing';
     lobby.match = newMatch(lobby.settings, rng, Math.floor(rng() * needed));
+    lobby.timeouts = [];
     runBots(lobby, rng);
+    armTimer(lobby);
   });
 
 export const playMove = (store: Store, input: { code?: unknown; token?: unknown; move?: unknown }, rng: Rng = secureRng) =>
@@ -246,7 +315,9 @@ export const playMove = (store: Store, input: { code?: unknown; token?: unknown;
     } catch {
       throw new HttpError(409, 'That move is not allowed right now');
     }
+    lobby.timeouts[move.seat] = 0;
     runBots(lobby, rng);
+    armTimer(lobby);
   });
 
 export const startNextHand = (
@@ -263,6 +334,7 @@ export const startNextHand = (
     if (match.hand.phase !== 'ended') throw new HttpError(409, 'The hand is still running');
     lobby.match = nextHand(match, rng);
     runBots(lobby, rng);
+    armTimer(lobby);
   });
 
 export const rematch = (store: Store, input: { code?: unknown; token?: unknown }, rng: Rng = secureRng) =>
@@ -271,7 +343,9 @@ export const rematch = (store: Store, input: { code?: unknown; token?: unknown }
     if (!lobby.match?.winners) throw new HttpError(409, 'The match is not over yet');
     const needed = playerCount(lobby.settings.mode);
     lobby.match = newMatch(lobby.settings, rng, Math.floor(rng() * needed));
+    lobby.timeouts = [];
     runBots(lobby, rng);
+    armTimer(lobby);
   });
 
 /** Leaving before the game starts frees the seat; once playing, the seat is kept for a return. */

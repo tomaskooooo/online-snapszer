@@ -834,3 +834,24 @@ button.card.playable:hover {
     transition: none !important;
   }
 }
+
+/* ---- turn clock ---------------------------------------------------------- */
+.clock {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  color: var(--accent);
+}
+.clock.low {
+  color: #ff8a80;
+  animation: pulse 1s ease-in-out infinite;
+}
+.away {
+  color: #ffb4ae;
+  font-size: 0.85rem;
+  text-align: center;
+}
+@keyframes pulse {
+  50% {
+    opacity: 0.45;
+  }
+}
